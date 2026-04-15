@@ -1,0 +1,63 @@
+version: 2026-04-15
+
+llms:
+  chat_default:
+    provider: anthropic
+    model: claude-sonnet-4-6
+  classify:
+    provider: openai
+    model: gpt-5.4-nano
+  hyde:
+    provider: openai
+    model: gpt-5.4-mini
+  grade_docs:
+    provider: openai
+    model: gpt-5.4-nano
+  grade_answer:
+    provider: anthropic
+    model: claude-haiku-4-5
+  metadata_tag:
+    provider: anthropic
+    model: claude-haiku-4-5
+
+embedding_defaults:
+  default: openai-large
+  multilingual: cohere-multi
+  local_fallback: nomic-local
+
+embeddings:
+  openai-large:
+    provider: openai
+    model: text-embedding-3-large
+    dimensions: 3072
+    qdrant_collection: docs_openai_large_3072
+  openai-small:
+    provider: openai
+    model: text-embedding-3-small
+    dimensions: 1536
+    qdrant_collection: docs_openai_small_1536
+  cohere-multi:
+    provider: cohere
+    model: embed-multilingual-v3.0
+    dimensions: 1024
+    qdrant_collection: docs_cohere_multi_1024
+  nomic-local:
+    provider: ollama
+    model: nomic-embed-text
+    dimensions: 768
+    qdrant_collection: docs_nomic_768
+  memory-openai-small:
+    provider: openai
+    model: text-embedding-3-small
+    dimensions: 1536
+    qdrant_collection: memory_openai_small_1536
+
+rerank:
+  default:
+    provider: cohere
+    model: rerank-3.5
+
+parsers:
+  hot: fast
+  cold_default: premium
+  cold_scanned: ocr
