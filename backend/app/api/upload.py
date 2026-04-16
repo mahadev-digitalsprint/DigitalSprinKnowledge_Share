@@ -3,12 +3,10 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from io import BytesIO
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
-from minio import Minio
 from sqlalchemy import select
 
 from app.api.deps import QdrantDep, SessionDep
@@ -23,23 +21,11 @@ from app.ingestion.pipeline import (
 )
 from app.models.schemas import DocumentOut, UploadAccepted
 from app.retrieval.qdrant import delete_by_document
+from app.storage import store_upload
 
 router = APIRouter(tags=["upload"])
 
 ALLOWED_EXT = {"pdf", "txt", "md", "rst", "docx", "pptx", "xlsx"}
-_minio: Minio | None = None
-
-
-def _minio_singleton() -> Minio:
-    global _minio
-    if _minio is None:
-        _minio = Minio(
-            settings.minio_endpoint,
-            access_key=settings.minio_access_key,
-            secret_key=settings.minio_secret_key,
-            secure=settings.minio_use_ssl,
-        )
-    return _minio
 
 
 @router.post("/api/upload", response_model=UploadAccepted, status_code=202)
@@ -66,14 +52,11 @@ async def upload_document(
     doc_id = str(uuid.uuid4())
     object_key = f"{settings.default_org_id}/{collection_id}/{doc_id}/{filename}"
 
-    minio = _minio_singleton()
     await asyncio.to_thread(
-        minio.put_object,
-        settings.minio_bucket,
+        store_upload,
+        content,
         object_key,
-        BytesIO(content),
-        len(content),
-        content_type=file.content_type or "application/octet-stream",
+        file.content_type or "application/octet-stream",
     )
 
     doc = DocumentDB(

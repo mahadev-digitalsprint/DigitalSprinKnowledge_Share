@@ -16,12 +16,15 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://rag:rag@localhost:5432/rag"
     redis_url: str = "redis://localhost:6379"
     qdrant_url: str = "http://localhost:6333"
+    qdrant_path: str = "./data/qdrant"
 
     minio_endpoint: str = "localhost:9000"
     minio_access_key: str = "minioadmin"
     minio_secret_key: str = "minioadmin"
     minio_bucket: str = "documents"
     minio_use_ssl: bool = False
+    storage_provider: str = "minio"
+    local_storage_path: str = "./data/storage"
 
     cors_origins: list[str] = ["http://localhost:3000"]
     default_org_id: str = "default-org"

@@ -42,6 +42,7 @@ function UserAvatar() {
 
 function ActionBar({ content }: { content: string }) {
   const [copied, setCopied] = useState(false);
+  const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
 
   const handleCopy = async () => {
     try {
@@ -58,10 +59,22 @@ function ActionBar({ content }: { content: string }) {
       <button title="Copy" onClick={handleCopy} className="message-action-button">
         <Copy size={12} />
       </button>
-      <button title="Good response" className="message-action-button">
+      <button
+        title="Good response"
+        aria-pressed={feedback === "up"}
+        onClick={() => setFeedback((value) => (value === "up" ? null : "up"))}
+        className="message-action-button"
+        style={feedback === "up" ? { color: "var(--success)" } : undefined}
+      >
         <ThumbsUp size={12} />
       </button>
-      <button title="Bad response" className="message-action-button">
+      <button
+        title="Bad response"
+        aria-pressed={feedback === "down"}
+        onClick={() => setFeedback((value) => (value === "down" ? null : "down"))}
+        className="message-action-button"
+        style={feedback === "down" ? { color: "var(--error)" } : undefined}
+      >
         <ThumbsDown size={12} />
       </button>
       {copied && <span className="text-xs text-[var(--text-subtle)]">Copied</span>}

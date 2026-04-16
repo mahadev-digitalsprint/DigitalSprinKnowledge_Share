@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from datetime import date
 
 import yaml
 from pydantic import BaseModel, Field
@@ -34,7 +35,7 @@ class ParserDefaults(BaseModel):
 
 
 class RegistryConfig(BaseModel):
-    version: str
+    version: str | date
     llms: dict[str, LLMTarget]
     embedding_defaults: dict[str, str] = Field(default_factory=dict)
     embeddings: dict[str, EmbeddingProfile]

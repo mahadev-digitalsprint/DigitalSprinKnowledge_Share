@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import re
 import uuid
 from dataclasses import dataclass, field
 
@@ -7,7 +9,28 @@ import tiktoken
 
 from app.core.parsers.base import ParsedPage
 
-_enc = tiktoken.get_encoding("cl100k_base")
+logger = logging.getLogger(__name__)
+
+
+class _WhitespaceEncoding:
+    _token_pattern = re.compile(r"\S+\s*")
+
+    def encode(self, text: str) -> list[str]:
+        return self._token_pattern.findall(text)
+
+    def decode(self, tokens: list[str]) -> str:
+        return "".join(tokens)
+
+
+def _load_encoding():
+    try:
+        return tiktoken.get_encoding("cl100k_base")
+    except Exception as exc:
+        logger.warning("Falling back to whitespace chunking because tiktoken is unavailable: %s", exc)
+        return _WhitespaceEncoding()
+
+
+_enc = _load_encoding()
 
 
 @dataclass

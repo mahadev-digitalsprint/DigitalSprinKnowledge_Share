@@ -6,6 +6,7 @@ from functools import lru_cache
 from openai import AsyncOpenAI
 
 from app.config import settings
+from app.core.http import get_async_http_client
 from app.core.registry import get_embedding_profile, resolve_embedding_profile
 
 logger = logging.getLogger(__name__)
@@ -13,7 +14,10 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=1)
 def _openai_client() -> AsyncOpenAI:
-    return AsyncOpenAI(api_key=settings.openai_api_key)
+    return AsyncOpenAI(
+        api_key=settings.openai_api_key,
+        http_client=get_async_http_client(),
+    )
 
 
 def get_embedding_dims(profile_name: str | None = None) -> int:

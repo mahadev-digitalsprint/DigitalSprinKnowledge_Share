@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from minio import Minio
 from qdrant_client import AsyncQdrantClient
 from sqlalchemy import func, select
 
@@ -27,6 +27,7 @@ from app.config import settings
 from app.core.registry import resolve_embedding_profile
 from app.db import AsyncSessionLocal, CollectionDB, create_tables
 from app.retrieval.qdrant import init_collections
+from app.storage import ensure_storage_ready
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(message)s")
 logger = logging.getLogger(__name__)
@@ -38,6 +39,16 @@ DEFAULT_COLLECTIONS = [
 ]
 
 
+def _create_qdrant_client() -> AsyncQdrantClient:
+    if settings.qdrant_url.lower() == "local":
+        path = Path(settings.qdrant_path).resolve()
+        path.mkdir(parents=True, exist_ok=True)
+        return AsyncQdrantClient(path=str(path))
+    if settings.qdrant_url == ":memory:":
+        return AsyncQdrantClient(location=":memory:")
+    return AsyncQdrantClient(url=settings.qdrant_url)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # ── Postgres ──────────────────────────────────────────────────────────────
@@ -45,23 +56,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Postgres tables ready")
 
     # ── Qdrant ────────────────────────────────────────────────────────────────
-    qdrant = AsyncQdrantClient(url=settings.qdrant_url)
+    qdrant = _create_qdrant_client()
     await init_collections(qdrant)
     app.state.qdrant = qdrant
     logger.info("Qdrant ready")
 
-    # ── MinIO ─────────────────────────────────────────────────────────────────
-    minio = Minio(
-        settings.minio_endpoint,
-        access_key=settings.minio_access_key,
-        secret_key=settings.minio_secret_key,
-        secure=settings.minio_use_ssl,
-    )
-    if not minio.bucket_exists(settings.minio_bucket):
-        minio.make_bucket(settings.minio_bucket)
-        logger.info("MinIO bucket '%s' created", settings.minio_bucket)
-    app.state.minio = minio
-    logger.info("MinIO ready")
+    # ── Storage ───────────────────────────────────────────────────────────────
+    app.state.storage = ensure_storage_ready()
+    logger.info("Storage ready")
 
     # ── Seed default collections ──────────────────────────────────────────────
     async with AsyncSessionLocal() as session:

@@ -133,9 +133,9 @@ async def search_routes(
     for route in routes:
         collection_name = get_qdrant_collection_name(route.embedding_profile)
         vector = query_vectors[route.embedding_profile]
-        response = await client.search(
+        response = await client.query_points(
             collection_name=collection_name,
-            query_vector=vector,
+            query=vector,
             query_filter=_build_filter(route.org_id, route.collection_id),
             limit=max(limit, 8),
             with_payload=True,
@@ -154,7 +154,7 @@ async def search_routes(
                 "source_path": hit.payload.get("source_path", ""),
                 "embedding_profile": route.embedding_profile,
             }
-            for hit in response
+            for hit in response.points
         )
 
     results.sort(key=lambda item: item["score"], reverse=True)

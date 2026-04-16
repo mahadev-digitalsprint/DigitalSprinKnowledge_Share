@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Cpu, Database, Save, Sparkles } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { ArrowLeft, Check, Database, Save, Sparkles } from "lucide-react";
 import { Logo } from "@/components/common/Logo";
 import { mockModels, mockEmbeddings } from "@/lib/mock-data";
+
+const SETTINGS_STORAGE_KEY = "rag-ui-settings";
 
 const PROVIDER_COLORS: Record<string, string> = {
   anthropic: "#a78bfa",
@@ -16,11 +17,34 @@ const PROVIDER_COLORS: Record<string, string> = {
 };
 
 export default function SettingsPage() {
-  const [selectedModel,     setSelectedModel]     = useState("claude-sonnet-4-6");
+  const [selectedModel,     setSelectedModel]     = useState("gpt-4o-mini");
   const [selectedEmbedding, setSelectedEmbedding] = useState("openai-large");
   const [saved, setSaved] = useState(false);
 
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        defaultModelId?: string;
+        embeddingId?: string;
+      };
+
+      if (parsed.defaultModelId) setSelectedModel(parsed.defaultModelId);
+      if (parsed.embeddingId) setSelectedEmbedding(parsed.embeddingId);
+    } catch {
+      // Ignore invalid local settings and keep defaults.
+    }
+  }, []);
+
   const handleSave = () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        defaultModelId: selectedModel,
+        embeddingId: selectedEmbedding,
+      }),
+    );
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };

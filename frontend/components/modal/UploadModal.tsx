@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "@/components/common/Modal";
 import { Button } from "@/components/common/Button";
 import { FileDropZone } from "@/components/modal/FileDropZone";
@@ -11,7 +11,7 @@ import { uploadDocument, watchUploadEvents } from "@/lib/api-client";
 type UploadModalProps = {
   open: boolean;
   onClose: () => void;
-  collectionName: string;
+  preferredCollectionId?: string;
   collections: Collection[];
 };
 
@@ -36,10 +36,14 @@ const STAGE_TO_PROGRESS: Record<string, number> = {
   error:      0,
 };
 
-export function UploadModal({ open, onClose, collectionName: _collectionName, collections }: UploadModalProps) {
+export function UploadModal({ open, onClose, preferredCollectionId, collections }: UploadModalProps) {
   const [files, setFiles]           = useState<UploadFile[]>([]);
-  const [targetColl, setTargetColl] = useState<string>(collections[1]?.id ?? collections[0]?.id ?? "");
+  const [targetColl, setTargetColl] = useState<string>("");
   const cleanupRef = useRef<Array<() => void>>([]);
+  const uploadCollections = useMemo(
+    () => collections.filter((collection) => collection.id !== "all"),
+    [collections],
+  );
 
   useEffect(() => {
     if (!open) {
@@ -48,6 +52,16 @@ export function UploadModal({ open, onClose, collectionName: _collectionName, co
       setFiles([]);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const fallbackCollectionId = uploadCollections[0]?.id ?? "";
+    setTargetColl(
+      preferredCollectionId && preferredCollectionId !== "all"
+        ? preferredCollectionId
+        : fallbackCollectionId,
+    );
+  }, [open, preferredCollectionId, uploadCollections]);
 
   const handleFiles = useCallback((incoming: File[]) => {
     const newFiles: UploadFile[] = incoming.map(f => ({
@@ -72,7 +86,8 @@ export function UploadModal({ open, onClose, collectionName: _collectionName, co
       prev.map(f => pending.find(p => p.id === f.id) ? { ...f, status: "uploading", progress: 5 } : f),
     );
 
-    const collId = targetColl || "all";
+    const collId = targetColl || uploadCollections[0]?.id || "";
+    if (!collId) return;
 
     for (const uf of pending) {
       try {
@@ -150,7 +165,7 @@ export function UploadModal({ open, onClose, collectionName: _collectionName, co
           onFocus={e => (e.currentTarget.style.borderColor = "var(--border-brand)")}
           onBlur={e => (e.currentTarget.style.borderColor = "var(--border-bright)")}
         >
-          {collections.filter(c => c.id !== "all").map(c => (
+          {uploadCollections.map(c => (
             <option key={c.id} value={c.id} style={{ background: "var(--bg-elevated)" }}>
               {c.name}
             </option>
@@ -193,7 +208,7 @@ export function UploadModal({ open, onClose, collectionName: _collectionName, co
               variant="primary"
               size="sm"
               onClick={handleUpload}
-              disabled={files.length === 0 || anyActive}
+              disabled={files.length === 0 || anyActive || !targetColl}
               loading={anyActive}
             >
               {anyActive ? "Processing…" : "Upload & Index"}

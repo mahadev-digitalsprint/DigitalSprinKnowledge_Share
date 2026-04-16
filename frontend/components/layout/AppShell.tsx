@@ -21,8 +21,17 @@ export function AppShell({ children, activeCollectionId = "all", onCollectionCha
     <div className="flex h-screen overflow-hidden bg-ds-bg">
       <Sidebar
         collections={mockCollections}
+        recentChats={[]}
         activeCollectionId={activeCollectionId}
+        activeChatId={undefined}
         onCollectionChange={onCollectionChange ?? (() => {})}
+        onSelectChat={() => {}}
+        onNewChat={() => {}}
+        searchOpen={false}
+        searchQuery=""
+        onSearchOpen={() => {}}
+        onSearchClose={() => {}}
+        onSearchQueryChange={() => {}}
         onOpenUpload={() => setUploadOpen(true)}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -35,7 +44,7 @@ export function AppShell({ children, activeCollectionId = "all", onCollectionCha
       <UploadModal
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
-        collectionName={activeCollection?.name ?? "All Documents"}
+        preferredCollectionId={activeCollection?.id}
         collections={mockCollections}
       />
     </div>

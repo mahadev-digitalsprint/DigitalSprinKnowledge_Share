@@ -9,6 +9,7 @@ type TopBarProps = {
   modelId: string;
   onModelChange: (id: string) => void;
   onMenuClick: () => void;
+  onSearchClick: () => void;
   className?: string;
 };
 
@@ -18,6 +19,7 @@ export function TopBar({
   modelId,
   onModelChange,
   onMenuClick,
+  onSearchClick,
   className,
 }: TopBarProps) {
   return (
@@ -49,7 +51,10 @@ export function TopBar({
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <button className="hidden h-8 items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3 text-xs text-[var(--text-subtle)] md:inline-flex">
+        <button
+          onClick={onSearchClick}
+          className="hidden h-8 items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3 text-xs text-[var(--text-subtle)] md:inline-flex"
+        >
           <Search size={13} />
           Search chats
         </button>
