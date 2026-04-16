@@ -1,5 +1,18 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+export type UploadDocumentPayload = {
+  collectionId: string;
+  department: string;
+  toolName: string;
+  toolUrl: string;
+  shortDescription: string;
+  primaryRole: string;
+  audienceRoles: string[];
+  importanceNote: string;
+  impactNote: string;
+  rating: number;
+};
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type ApiCollection = {
@@ -10,12 +23,34 @@ export type ApiCollection = {
   color: string;
   is_public: boolean;
   embedding_profile: string;
+  section: string;
+};
+
+export type ApiCollectionSummaryItem = {
+  id: string;
+  name: string;
+  description: string;
+  created_at: string;
+};
+
+export type ApiCollectionSummary = {
+  collection_id: string;
+  collection_name: string;
+  tool_count: number;
+  document_count: number;
+  tools: ApiCollectionSummaryItem[];
+  documents: ApiCollectionSummaryItem[];
 };
 
 export type UploadAccepted = {
   doc_id: string;
   filename: string;
   collection_id: string;
+  record_kind: string;
+  tool_name: string;
+  tool_url: string;
+  short_description: string;
+  department: string;
 };
 
 export type UploadProgressEvent = {
@@ -36,6 +71,13 @@ export type ChatSource = {
   excerpt: string;
   score: number;
   document_id: string;
+  record_kind?: string;
+  tool_url?: string;
+  short_description?: string;
+  department?: string;
+  primary_role?: string;
+  rating?: number;
+  quality?: string;
 };
 
 export type ChatStreamEvent =
@@ -66,15 +108,32 @@ export async function createCollection(body: {
   return res.json();
 }
 
+export async function fetchCollectionSummary(
+  collectionId: string,
+): Promise<ApiCollectionSummary> {
+  const res = await fetch(`${API_URL}/api/collections/${collectionId}/summary`);
+  if (!res.ok) throw new Error(`Failed to load collection summary: ${res.status}`);
+  return res.json();
+}
+
 // ── Upload ────────────────────────────────────────────────────────────────────
 
 export async function uploadDocument(
-  file: File,
-  collectionId: string,
+  file: File | null,
+  payload: UploadDocumentPayload,
 ): Promise<UploadAccepted> {
   const form = new FormData();
-  form.append("file", file);
-  form.append("collection_id", collectionId);
+  if (file) form.append("file", file);
+  form.append("collection_id", payload.collectionId);
+  form.append("department", payload.department);
+  form.append("tool_name", payload.toolName);
+  form.append("tool_url", payload.toolUrl);
+  form.append("short_description", payload.shortDescription);
+  form.append("primary_role", payload.primaryRole);
+  form.append("audience_roles", JSON.stringify(payload.audienceRoles));
+  form.append("importance_note", payload.importanceNote);
+  form.append("impact_note", payload.impactNote);
+  form.append("rating", String(payload.rating));
 
   const res = await fetch(`${API_URL}/api/upload`, {
     method: "POST",

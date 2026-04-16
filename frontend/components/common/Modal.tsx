@@ -29,7 +29,7 @@ export function Modal({ open, onClose, title, description, maxWidth = "md", chil
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
+      style={{ background: "var(--overlay-bg)", backdropFilter: "blur(8px)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div

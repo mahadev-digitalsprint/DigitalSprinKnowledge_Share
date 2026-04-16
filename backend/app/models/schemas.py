@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ── Collections ───────────────────────────────────────────────────────────────
@@ -11,6 +11,7 @@ class CollectionCreate(BaseModel):
     color: str = "#10a37f"
     is_public: bool = True
     embedding_profile: str | None = None
+    section: str = "General"
 
 
 class CollectionOut(BaseModel):
@@ -21,9 +22,26 @@ class CollectionOut(BaseModel):
     color: str
     is_public: bool
     embedding_profile: str
+    section: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class CollectionSummaryItem(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    created_at: datetime
+
+
+class CollectionSummaryOut(BaseModel):
+    collection_id: str
+    collection_name: str
+    tool_count: int
+    document_count: int
+    tools: list[CollectionSummaryItem] = Field(default_factory=list)
+    documents: list[CollectionSummaryItem] = Field(default_factory=list)
 
 
 # ── Documents ─────────────────────────────────────────────────────────────────
@@ -36,7 +54,24 @@ class DocumentOut(BaseModel):
     status: str
     quality: str
     chunk_count: int
+    record_kind: str
+    tool_name: str
+    tool_url: str
+    short_description: str
+    department: str
+    primary_role: str
+    audience_roles: list[str] = Field(default_factory=list)
+    importance_note: str
+    impact_note: str
+    rating: int
     created_at: datetime
+
+    @field_validator("audience_roles", mode="before")
+    @classmethod
+    def parse_audience_roles(cls, value: str | list[str]) -> list[str]:
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return value
 
     model_config = {"from_attributes": True}
 
@@ -47,6 +82,11 @@ class UploadAccepted(BaseModel):
     doc_id: str
     filename: str
     collection_id: str
+    record_kind: str = "document"
+    tool_name: str = ""
+    tool_url: str = ""
+    short_description: str = ""
+    department: str = ""
 
 
 # ── Chat ─────────────────────────────────────────────────────────────────────
@@ -81,6 +121,9 @@ class DocSource(BaseModel):
     quality: str = "fast"
     version: int = 1
     bbox: list[float] = Field(default_factory=list)
+    record_kind: str = "document"
+    tool_url: str = ""
+    short_description: str = ""
 
 
 # ── SSE events (serialised as JSON in data field) ────────────────────────────

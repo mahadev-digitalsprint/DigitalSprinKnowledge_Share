@@ -26,7 +26,7 @@ export function TopBar({
     <header
       className={cn("flex h-14 shrink-0 items-center justify-between gap-3 px-4", className)}
       style={{
-        background: "rgba(18,18,20,0.88)",
+        background: "var(--topbar-bg)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         borderBottom: "1px solid var(--border-subtle)",

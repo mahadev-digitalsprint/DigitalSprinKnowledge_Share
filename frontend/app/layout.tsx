@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Syne } from "next/font/google";
 import "@/styles/globals.css";
+import { SETTINGS_STORAGE_KEY } from "@/lib/theme";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -22,9 +23,37 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const themeBootScript = `
+    (function() {
+      try {
+        var theme = "dark";
+        var raw = localStorage.getItem("${SETTINGS_STORAGE_KEY}");
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          if (parsed && (parsed.theme === "dark" || parsed.theme === "light")) {
+            theme = parsed.theme;
+          }
+        }
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      } catch (error) {
+        document.documentElement.dataset.theme = "dark";
+        document.documentElement.style.colorScheme = "dark";
+      }
+    })();
+  `;
+
   return (
-    <html lang="en" className={`${inter.variable} ${syne.variable}`}>
-      <body className="h-full font-sans antialiased">{children}</body>
+    <html
+      lang="en"
+      data-theme="dark"
+      suppressHydrationWarning
+      className={`${inter.variable} ${syne.variable}`}
+    >
+      <body className="h-full font-sans antialiased">
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+        {children}
+      </body>
     </html>
   );
 }

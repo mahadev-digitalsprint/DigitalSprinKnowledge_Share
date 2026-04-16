@@ -62,7 +62,7 @@ export function ChatInput({
   return (
     <div
       className={cn("shrink-0 px-4 pb-5 pt-3", className)}
-      style={{ background: "linear-gradient(180deg, rgba(18,18,20,0) 0%, var(--app-bg) 22%)" }}
+      style={{ background: "var(--composer-gradient)" }}
     >
       <div className="mx-auto max-w-4xl">
         <div
@@ -70,9 +70,7 @@ export function ChatInput({
           style={{
             background: "var(--surface-primary)",
             borderColor: focused ? "var(--border-strong)" : "var(--border-subtle)",
-            boxShadow: focused
-              ? "0 0 0 4px rgba(255,255,255,0.04), 0 18px 48px rgba(0,0,0,0.28)"
-              : "0 18px 48px rgba(0,0,0,0.24)",
+            boxShadow: focused ? "var(--composer-shadow-focus)" : "var(--composer-shadow)",
           }}
         >
           <textarea

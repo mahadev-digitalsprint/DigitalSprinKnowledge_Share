@@ -9,6 +9,14 @@ export type DocSource = {
   collection: string;
   excerpt: string;
   score?: number;
+  documentId?: string;
+  recordKind?: "document" | "tool";
+  toolUrl?: string;
+  shortDescription?: string;
+  department?: string;
+  primaryRole?: string;
+  rating?: number;
+  quality?: string;
 };
 
 export type WebSource = {
@@ -44,9 +52,26 @@ export type Collection = {
   id: string;
   name: string;
   description?: string;
+  section?: string;
   docCount: number;
   isPublic: boolean;
   color?: string;
+};
+
+export type CollectionSummaryItem = {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: Date;
+};
+
+export type CollectionSummary = {
+  collectionId: string;
+  collectionName: string;
+  toolCount: number;
+  documentCount: number;
+  tools: CollectionSummaryItem[];
+  documents: CollectionSummaryItem[];
 };
 
 // ─── Recent Chat Types ────────────────────────────────────────────────────────
@@ -61,11 +86,12 @@ export type RecentChat = {
 
 // ─── Model Types ──────────────────────────────────────────────────────────────
 
-export type ModelProvider = "anthropic" | "openai" | "azure" | "google" | "ollama";
+export type ModelProvider = "openai" | "azure" | "google";
 
 export type ModelOption = {
   id: string;
   provider: ModelProvider;
+  requestModel?: string;
   name: string;
   description: string;
   contextWindow: string;
@@ -83,6 +109,17 @@ export type UploadFile = {
   status: UploadStatus;
   progress: number;
   errorMsg?: string;
+};
+
+export type UploadMetadata = {
+  toolName: string;
+  toolUrl: string;
+  shortDescription: string;
+  primaryRole: string;
+  audienceRoles: string[];
+  importanceNote: string;
+  impactNote: string;
+  rating: number;
 };
 
 // ─── Settings Types ───────────────────────────────────────────────────────────

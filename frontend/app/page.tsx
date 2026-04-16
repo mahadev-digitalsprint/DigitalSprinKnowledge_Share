@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { TopBar } from "@/components/chat/TopBar";
 import { MessageList } from "@/components/chat/MessageList";
+import { SourceSidebar } from "@/components/chat/SourceSidebar";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { UploadModal } from "@/components/modal/UploadModal";
 import { mockCollections, mockModels } from "@/lib/mock-data";
@@ -12,7 +13,7 @@ import { fetchCollections, streamChat } from "@/lib/api-client";
 
 const CHAT_STORAGE_KEY = "rag-ui-chats";
 const SETTINGS_STORAGE_KEY = "rag-ui-settings";
-const SUPPORTED_CHAT_PROVIDERS = new Set(["anthropic", "openai"]);
+const SUPPORTED_CHAT_PROVIDERS = new Set(["openai", "azure", "google"]);
 
 let messageSeed = 100;
 let chatSeed = 0;
@@ -84,7 +85,7 @@ function getSupportedModelId(preferred?: string): string {
     return preferred;
   }
 
-  return supportedModels.find((model) => model.id === "gpt-4o-mini")?.id ?? supportedModels[0].id;
+  return supportedModels.find((model) => model.id === "gpt-4o")?.id ?? supportedModels[0].id;
 }
 
 function getLastMessagePreview(chat: ChatSession): string {
@@ -107,7 +108,7 @@ export default function ChatPage() {
   const [collections, setCollections] = useState<Collection[]>(mockCollections);
   const [chats, setChats] = useState<ChatSession[]>([INITIAL_CHAT]);
   const [activeChatId, setActiveChatId] = useState(INITIAL_CHAT.id);
-  const [modelId, setModelId] = useState("gpt-4o-mini");
+  const [modelId, setModelId] = useState("gpt-4o");
   const [activeCollection, setActiveCollection] = useState("all");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -115,28 +116,33 @@ export default function ChatPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [sourcePanelOpen, setSourcePanelOpen] = useState(false);
+  const [sourceMessageId, setSourceMessageId] = useState<string | null>(null);
+  const [sourceIndex, setSourceIndex] = useState<number | null>(null);
   const abortRef = useRef<(() => void) | null>(null);
 
   const refreshCollections = useCallback(async () => {
     const apiCollections = await fetchCollections();
     const totalDocs = apiCollections.reduce((sum, collection) => sum + collection.doc_count, 0);
-    setCollections([
-      {
-        id: "all",
-        name: "All Documents",
-        docCount: totalDocs,
-        isPublic: true,
-        color: "#10a37f",
-      },
-      ...apiCollections.map((collection) => ({
-        id: collection.id,
-        name: collection.name,
-        description: collection.description,
-        docCount: collection.doc_count,
-        isPublic: collection.is_public,
-        color: collection.color,
-      })),
-    ]);
+      setCollections([
+        {
+          id: "all",
+          name: "All Documents",
+          section: "Overview",
+          docCount: totalDocs,
+          isPublic: true,
+          color: "#10a37f",
+        },
+        ...apiCollections.map((collection) => ({
+          id: collection.id,
+          name: collection.name,
+          description: collection.description,
+          section: collection.section,
+          docCount: collection.doc_count,
+          isPublic: collection.is_public,
+          color: collection.color,
+        })),
+      ]);
   }, []);
 
   useEffect(() => {
@@ -214,11 +220,38 @@ export default function ChatPage() {
     });
   }, [recentChats, searchQuery]);
 
+  const activeSourceMessage = useMemo(
+    () =>
+      messages.find((message) => message.id === sourceMessageId && (message.sources?.length ?? 0) > 0),
+    [messages, sourceMessageId],
+  );
+
+  useEffect(() => {
+    if (!sourceMessageId) return;
+
+    if (!activeSourceMessage) {
+      setSourcePanelOpen(false);
+      setSourceMessageId(null);
+      setSourceIndex(null);
+      return;
+    }
+
+    if (sourceIndex === null) {
+      setSourceIndex(activeSourceMessage.sources?.[0]?.index ?? null);
+      return;
+    }
+
+    if (!activeSourceMessage.sources?.some((source) => source.index === sourceIndex)) {
+      setSourceIndex(activeSourceMessage.sources?.[0]?.index ?? null);
+    }
+  }, [activeSourceMessage, sourceIndex, sourceMessageId]);
+
   const handleCollectionChange = useCallback(
     (collectionId: string) => {
       setActiveCollection(collectionId);
       updateChat(activeChat.id, (chat) => ({ ...chat, collectionId }));
       setSidebarOpen(false);
+      setSourcePanelOpen(false);
     },
     [activeChat.id, updateChat],
   );
@@ -237,6 +270,7 @@ export default function ChatPage() {
         updatedAt: new Date().toISOString(),
       }));
       setSidebarOpen(false);
+      setSourcePanelOpen(false);
       return;
     }
 
@@ -244,6 +278,7 @@ export default function ChatPage() {
     setChats((prev) => [newChat, ...prev]);
     setActiveChatId(newChat.id);
     setSidebarOpen(false);
+    setSourcePanelOpen(false);
   }, [activeChat.id, activeChat.messages.length, activeCollection, updateChat]);
 
   const handleOpenSearch = useCallback(() => {
@@ -265,9 +300,17 @@ export default function ChatPage() {
       setSearchOpen(false);
       setSearchQuery("");
       setSidebarOpen(false);
+      setSourcePanelOpen(false);
     },
     [chats],
   );
+
+  const handleOpenSources = useCallback((message: Message, selectedIndex?: number) => {
+    const nextIndex = selectedIndex ?? message.sources?.[0]?.index ?? null;
+    setSourceMessageId(message.id);
+    setSourceIndex(nextIndex);
+    setSourcePanelOpen(true);
+  }, []);
 
   const handleSend = useCallback(
     (text: string) => {
@@ -278,6 +321,7 @@ export default function ChatPage() {
       const currentMessages = activeChat.messages;
       const selectedModel = mockModels.find((model) => model.id === modelId);
       const provider = selectedModel?.provider ?? "openai";
+      const requestModel = selectedModel?.requestModel ?? modelId;
       const streamId = nextMessageId();
       const userMessage: Message = {
         id: nextMessageId(),
@@ -312,7 +356,7 @@ export default function ChatPage() {
             message.id === streamId
               ? {
                   ...message,
-                  content: `${selectedModel?.name ?? modelId} is not wired to the backend yet. Pick an OpenAI or Anthropic model.`,
+                  content: `${selectedModel?.name ?? modelId} is not wired to the backend yet. Pick OpenAI, Azure OpenAI, or Gemini.`,
                   isStreaming: false,
                   model: modelId,
                   webSearched: webSearchEnabled,
@@ -339,7 +383,7 @@ export default function ChatPage() {
             query: prompt,
             collectionId: activeCollection,
             provider,
-            model: modelId,
+            model: requestModel,
             history,
           });
 
@@ -356,6 +400,14 @@ export default function ChatPage() {
                 title: source.title,
                 filename: source.filename,
                 page: source.page,
+                documentId: source.document_id,
+                recordKind: source.record_kind === "tool" ? "tool" : "document",
+                toolUrl: source.tool_url,
+                shortDescription: source.short_description,
+                department: source.department,
+                primaryRole: source.primary_role,
+                rating: source.rating,
+                quality: source.quality,
                 collection:
                   collections.find((collection) => collection.id === source.collection_id)?.name ??
                   activeCol?.name ??
@@ -487,7 +539,13 @@ export default function ChatPage() {
           onSearchClick={handleOpenSearch}
         />
 
-        <MessageList messages={messages} onExampleClick={handleExampleClick} className="flex-1" />
+        <MessageList
+          messages={messages}
+          onExampleClick={handleExampleClick}
+          onOpenSources={handleOpenSources}
+          activeSourceMessageId={sourcePanelOpen ? sourceMessageId : null}
+          className="flex-1"
+        />
 
         <ChatInput
           modelId={modelId}
@@ -499,6 +557,14 @@ export default function ChatPage() {
           disabled={isStreaming}
         />
       </div>
+
+      <SourceSidebar
+        open={sourcePanelOpen}
+        message={activeSourceMessage}
+        activeSourceIndex={sourceIndex}
+        onSelectSource={setSourceIndex}
+        onClose={() => setSourcePanelOpen(false)}
+      />
 
       <UploadModal
         open={uploadOpen}
