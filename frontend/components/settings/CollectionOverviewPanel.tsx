@@ -150,8 +150,8 @@ export function CollectionOverviewPanel({
               See what is inside each collection
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
-              This area is for browsing uploaded tools and attached documents without crowding the chat
-              experience.
+              Use this area to browse uploaded tools and documents, and choose which collection should be
+              the default scope for new chats.
             </p>
           </div>
 
@@ -255,7 +255,8 @@ export function CollectionOverviewPanel({
           }}
         >
           <Layers3 size={14} />
-          The panel shows the newest few items so the page stays readable while still giving a quick snapshot.
+          The panel shows the newest few items so the page stays readable while still giving a quick
+          snapshot of the default collection you will use for new chats.
         </div>
       </div>
     </section>

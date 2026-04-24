@@ -3,18 +3,34 @@
 ## 1. Create `.env`
 ```bash
 cp .env.example .env
-# Set OPENAI_API_KEY and ANTHROPIC_API_KEY at minimum
+# Set OPENAI_API_KEY
 ```
 
-## 2. Start infrastructure + backend
+## 2. Start the backend
 ```bash
-docker compose up --build
+cd backend
+python -m venv .venv
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # Mac/Linux
+pip install -r requirements.txt
+cd ..
+uvicorn app.main:app --app-dir backend
 ```
 
-Backend: `http://localhost:8000`  
-MinIO console: `http://localhost:9001`
+Backend: `http://localhost:8000`
 
-## 3. Start frontend
+**Python note:** 3.12 or 3.13 recommended. 3.14 works but only with the current pydantic pins.
+
+**Local data stored in:**
+- `backend/data/app.db`
+- `backend/data/qdrant`
+- `backend/data/storage`
+
+**Dev notes:**
+- Embedded Qdrant is single-process — stop any old backend process before starting a new one.
+- On Windows, `--reload` can contend for `backend/data/qdrant` and trigger a lock error; omit it.
+
+## 3. Start the frontend
 ```bash
 cd frontend
 cp .env.local.example .env.local
@@ -24,28 +40,45 @@ npm run dev
 
 UI: `http://localhost:3000`
 
-## v3 Ingestion Flow
+## Stack
 
-| Action | What happens |
-|--------|--------------|
-| Upload document | Local hot parser -> fast chunking -> embed -> Qdrant searchable |
-| Complex document | Cold upgrade runs after searchable and replaces fast chunks with premium chunks |
-| Ask question | Collection-aware embed route -> Qdrant search by embedding profile -> LLM stream |
-| Event stream | SSE only (`/api/chat`, `/api/events`, legacy `/api/events/{doc_id}` kept for compatibility) |
+| Layer | Technology |
+|-------|-----------|
+| Chat | OpenAI API |
+| App data | SQLite (`backend/data/app.db`) |
+| Vector search | Embedded Qdrant |
+| File storage | Local (`backend/data/storage`) |
+| Frontend | Next.js 14 |
 
-## Registry
+No Docker, Postgres, or MinIO required.
 
-The backend now reads runtime defaults from:
+## Configuration
 
-`backend/config/registry.yaml`
-
-That file controls:
-- default chat/classify/HyDE models
-- embedding profiles and Qdrant collection names
-- parser hot/cold defaults
-- reranker defaults
+Edit `backend/config/registry.yaml` to change:
+- Default chat model
+- Embedding profile
 
 ## Health check
 ```bash
 curl http://localhost:8000/health
+```
+
+## Folder structure
+```
+Tool_Knowledge_RAG/
+├── backend/
+│   ├── .venv/            # Python virtual environment
+│   ├── app/              # FastAPI application
+│   ├── config/           # registry.yaml
+│   ├── data/             # SQLite + Qdrant + uploads (git-ignored)
+│   ├── scripts/          # Seed / reset scripts
+│   └── requirements.txt
+├── frontend/
+│   ├── app/              # Next.js pages
+│   ├── components/       # React components
+│   ├── lib/              # Utilities and types
+│   ├── public/           # Static assets
+│   └── styles/           # Global CSS
+├── .env.example
+└── START.md
 ```

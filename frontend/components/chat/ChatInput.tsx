@@ -61,7 +61,7 @@ export function ChatInput({
 
   return (
     <div
-      className={cn("shrink-0 px-4 pb-5 pt-3", className)}
+      className={cn("shrink-0 px-4 pb-4 pt-3", className)}
       style={{ background: "var(--composer-gradient)" }}
     >
       <div className="mx-auto max-w-4xl">
@@ -127,10 +127,6 @@ export function ChatInput({
             </button>
           </div>
         </div>
-
-        <p className="mt-2 text-center text-xs text-[var(--text-muted)]">
-          AI can make mistakes. Verify important details. Shift+Enter adds a new line.
-        </p>
       </div>
     </div>
   );

@@ -28,10 +28,18 @@ const EXAMPLE_PROMPTS = [
 type MessageListProps = {
   messages: Message[];
   onExampleClick: (prompt: string) => void;
+  onOpenSources?: (message: Message, sourceIndex?: number) => void;
+  activeSourceMessageId?: string | null;
   className?: string;
 };
 
-export function MessageList({ messages, onExampleClick, className }: MessageListProps) {
+export function MessageList({
+  messages,
+  onExampleClick,
+  onOpenSources,
+  activeSourceMessageId,
+  className,
+}: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,9 +55,7 @@ export function MessageList({ messages, onExampleClick, className }: MessageList
         )}
       >
         <div className="mb-10">
-          <div
-            className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-primary)] text-[var(--accent-strong)] shadow-[0_20px_60px_rgba(0,0,0,0.28)]"
-          >
+          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-primary)] text-[var(--accent-strong)] shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
             <Sparkles size={20} />
           </div>
 
@@ -68,9 +74,7 @@ export function MessageList({ messages, onExampleClick, className }: MessageList
               onClick={() => onExampleClick(label)}
               className="flex items-start gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-primary)] px-4 py-4 text-left text-[var(--text-subtle)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-secondary)] hover:text-[var(--text-main)] focus:outline-none"
             >
-              <span className="mt-0.5 shrink-0 text-[var(--accent-strong)]">
-                {icon}
-              </span>
+              <span className="mt-0.5 shrink-0 text-[var(--accent-strong)]">{icon}</span>
               <span className="text-sm font-medium leading-6">{label}</span>
             </button>
           ))}
@@ -83,7 +87,12 @@ export function MessageList({ messages, onExampleClick, className }: MessageList
     <div className={cn("scrollbar-thin flex flex-1 flex-col overflow-y-auto px-4 py-8", className)}>
       <div className="mx-auto w-full max-w-4xl space-y-8">
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble
+            key={message.id}
+            message={message}
+            onOpenSources={onOpenSources}
+            sourcePanelActive={message.id === activeSourceMessageId}
+          />
         ))}
         <div ref={bottomRef} aria-hidden="true" />
       </div>

@@ -86,7 +86,7 @@ export type RecentChat = {
 
 // ─── Model Types ──────────────────────────────────────────────────────────────
 
-export type ModelProvider = "openai" | "azure" | "google";
+export type ModelProvider = "openai" | "gemini";
 
 export type ModelOption = {
   id: string;

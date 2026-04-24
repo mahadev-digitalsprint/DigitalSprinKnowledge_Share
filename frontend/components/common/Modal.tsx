@@ -9,11 +9,11 @@ type ModalProps = {
   onClose: () => void;
   title: string;
   description?: string;
-  maxWidth?: "sm" | "md" | "lg";
+  maxWidth?: "sm" | "md" | "lg" | "xl";
   children: React.ReactNode;
 };
 
-const widths = { sm: "420px", md: "560px", lg: "720px" };
+const widths = { sm: "420px", md: "560px", lg: "720px", xl: "920px" };
 
 export function Modal({ open, onClose, title, description, maxWidth = "md", children }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -37,7 +37,7 @@ export function Modal({ open, onClose, title, description, maxWidth = "md", chil
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className="w-full animate-scale-in"
+        className="flex max-h-[calc(100vh-2rem)] w-full animate-scale-in flex-col overflow-hidden"
         style={{
           maxWidth: widths[maxWidth],
           background: "var(--bg-elevated)",
@@ -88,7 +88,7 @@ export function Modal({ open, onClose, title, description, maxWidth = "md", chil
         </div>
 
         {/* Body */}
-        <div className="px-6 py-5">{children}</div>
+        <div className="scrollbar-thin overflow-y-auto px-6 py-5">{children}</div>
       </div>
     </div>
   );

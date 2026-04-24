@@ -1,7 +1,8 @@
-import { Menu, Search } from "lucide-react";
+import { Menu, MoonStar, SunMedium } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { IconButton } from "@/components/common/IconButton";
 import { ModelSelector } from "@/components/chat/ModelSelector";
+import type { ThemeMode } from "@/lib/theme";
 
 type TopBarProps = {
   collectionName: string;
@@ -9,7 +10,8 @@ type TopBarProps = {
   modelId: string;
   onModelChange: (id: string) => void;
   onMenuClick: () => void;
-  onSearchClick: () => void;
+  theme: ThemeMode;
+  onToggleTheme: () => void;
   className?: string;
 };
 
@@ -19,7 +21,8 @@ export function TopBar({
   modelId,
   onModelChange,
   onMenuClick,
-  onSearchClick,
+  theme,
+  onToggleTheme,
   className,
 }: TopBarProps) {
   return (
@@ -52,11 +55,13 @@ export function TopBar({
 
       <div className="flex shrink-0 items-center gap-2">
         <button
-          onClick={onSearchClick}
-          className="hidden h-8 items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3 text-xs text-[var(--text-subtle)] md:inline-flex"
+          type="button"
+          onClick={onToggleTheme}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border-subtle)] text-[var(--text-subtle)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-primary)] hover:text-[var(--text-main)]"
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          title={theme === "dark" ? "Light mode" : "Dark mode"}
         >
-          <Search size={13} />
-          Search chats
+          {theme === "dark" ? <SunMedium size={14} /> : <MoonStar size={14} />}
         </button>
         <ModelSelector value={modelId} onChange={onModelChange} />
       </div>

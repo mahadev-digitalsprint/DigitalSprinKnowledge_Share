@@ -16,14 +16,14 @@ export function Logo({ className, size = "md", collapsed = false }: LogoProps) {
   const { iconSize, fontSize, gap } = sizes[size];
 
   const iconMark = (
-    <div
+    <img
       aria-hidden={!collapsed}
       aria-label={collapsed ? "Knowledge RAG" : undefined}
-      className="flex items-center justify-center rounded-xl bg-[var(--accent-strong)] text-white"
+      className="rounded-xl"
+      src="/assets/logo-digitalsprint-main.png"
+      alt={collapsed ? "Knowledge RAG" : ""}
       style={{ width: iconSize, height: iconSize }}
-    >
-      <span style={{ fontSize: iconSize / 2.35, fontWeight: 700 }}>K</span>
-    </div>
+    />
   );
 
   if (collapsed) {

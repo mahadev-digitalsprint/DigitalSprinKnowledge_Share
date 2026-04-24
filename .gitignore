@@ -13,13 +13,21 @@ venv/
 .mypy_cache/
 
 # Local tooling
-.claude/
+data/
 backend/.qdrant-test/
 backend/data/
 backend/server.log
 backend/server.err
+backend/smoke-server.log
+backend/smoke-server.err
+backend/uvicorn.out.log
+backend/uvicorn.err.log
 frontend/dev-server.log
 frontend/dev-server.err
+frontend/.next/
+
+# Claude Code project config
+.claude/
 
 # OS files
 .DS_Store

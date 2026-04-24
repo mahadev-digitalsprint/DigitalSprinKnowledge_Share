@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, type ReactNode } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { Source } from "@/lib/types";
 
 type MessageContentProps = {
@@ -9,122 +10,78 @@ type MessageContentProps = {
   onSourceClick: (index: number) => void;
 };
 
-function renderInline(
-  text: string,
-  sources: Source[] | undefined,
-  onSourceClick: (index: number) => void,
-) {
-  const parts = text.split(/(\[\d+\])/g);
-
-  return parts.map((part, idx) => {
-    const citationMatch = part.match(/^\[(\d+)\]$/);
-    if (citationMatch) {
-      const sourceIndex = Number(citationMatch[1]);
-      const source = sources?.find((item) => item.index === sourceIndex);
-      return (
-        <button
-          key={`${part}-${idx}`}
-          type="button"
-          onClick={() => onSourceClick(sourceIndex)}
-          className="citation-pill"
-          aria-label={source ? `Open source ${sourceIndex}: ${source.title}` : `Open source ${sourceIndex}`}
-        >
-          {sourceIndex}
-        </button>
-      );
-    }
-
-    const inlineParts = part.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g).filter(Boolean);
-    return (
-      <Fragment key={`${part}-${idx}`}>
-        {inlineParts.map((inlinePart, inlineIndex) => {
-          if (/^`[^`]+`$/.test(inlinePart)) {
+export function MessageContent({ content }: MessageContentProps) {
+  return (
+    <div className="message-content">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          pre({ children }) {
+            return <pre className="message-code-block">{children}</pre>;
+          },
+          code({ className, children, ...props }) {
+            const isBlock = Boolean(className);
+            if (isBlock) {
+              return (
+                <code className={className} {...props}>
+                  {children}
+                </code>
+              );
+            }
             return (
-              <code key={`${inlinePart}-${inlineIndex}`} className="message-code-inline">
-                {inlinePart.slice(1, -1)}
+              <code className="message-code-inline" {...props}>
+                {children}
               </code>
             );
-          }
-
-          if (/^\*\*[^*]+\*\*$/.test(inlinePart)) {
-            return <strong key={`${inlinePart}-${inlineIndex}`}>{inlinePart.slice(2, -2)}</strong>;
-          }
-
-          if (/^\*[^*]+\*$/.test(inlinePart)) {
-            return <em key={`${inlinePart}-${inlineIndex}`}>{inlinePart.slice(1, -1)}</em>;
-          }
-
-          return <Fragment key={`${inlinePart}-${inlineIndex}`}>{inlinePart}</Fragment>;
-        })}
-      </Fragment>
-    );
-  });
-}
-
-export function MessageContent({ content, sources, onSourceClick }: MessageContentProps) {
-  const lines = content.split("\n");
-  const blocks: ReactNode[] = [];
-  let paragraphLines: string[] = [];
-  let listItems: { ordered: boolean; text: string }[] = [];
-
-  const flushParagraph = () => {
-    if (!paragraphLines.length) return;
-    blocks.push(
-      <p key={`paragraph-${blocks.length}`}>
-        {renderInline(paragraphLines.join(" "), sources, onSourceClick)}
-      </p>,
-    );
-    paragraphLines = [];
-  };
-
-  const flushList = () => {
-    if (!listItems.length) return;
-    const ordered = listItems[0].ordered;
-    const Tag = ordered ? "ol" : "ul";
-    blocks.push(
-      <Tag key={`list-${blocks.length}`}>
-        {listItems.map((item, index) => (
-          <li key={`${item.text}-${index}`}>
-            {renderInline(item.text, sources, onSourceClick)}
-          </li>
-        ))}
-      </Tag>,
-    );
-    listItems = [];
-  };
-
-  lines.forEach((line) => {
-    const trimmed = line.trim();
-    const orderedMatch = trimmed.match(/^\d+\.\s+(.*)$/);
-    const unorderedMatch = trimmed.match(/^-\s+(.*)$/);
-
-    if (!trimmed) {
-      flushParagraph();
-      flushList();
-      return;
-    }
-
-    if (orderedMatch) {
-      flushParagraph();
-      listItems.push({ ordered: true, text: orderedMatch[1] });
-      return;
-    }
-
-    if (unorderedMatch) {
-      flushParagraph();
-      listItems.push({ ordered: false, text: unorderedMatch[1] });
-      return;
-    }
-
-    if (listItems.length) {
-      flushList();
-    }
-
-    paragraphLines.push(trimmed);
-  });
-
-  flushParagraph();
-  flushList();
-
-  return <div className="message-content">{blocks}</div>;
+          },
+          table({ children }) {
+            return (
+              <div className="my-3 overflow-x-auto rounded-lg border border-[var(--border-subtle)]">
+                <table className="min-w-full text-left text-sm">{children}</table>
+              </div>
+            );
+          },
+          thead({ children }) {
+            return <thead className="bg-[var(--surface-secondary)]">{children}</thead>;
+          },
+          th({ children }) {
+            return (
+              <th className="border-b border-[var(--border-subtle)] px-3 py-2 font-semibold text-[var(--text-main)]">
+                {children}
+              </th>
+            );
+          },
+          td({ children }) {
+            return (
+              <td className="border-b border-[var(--border-subtle)] px-3 py-2 align-top text-[var(--text-subtle)]">
+                {children}
+              </td>
+            );
+          },
+          blockquote({ children }) {
+            return (
+              <blockquote className="message-blockquote">{children}</blockquote>
+            );
+          },
+          a({ href, children }) {
+            return (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--accent-strong)] underline underline-offset-2 hover:opacity-80"
+              >
+                {children}
+              </a>
+            );
+          },
+          hr() {
+            return <hr className="my-4 border-[var(--border-subtle)]" />;
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
 }

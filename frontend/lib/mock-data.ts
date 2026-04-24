@@ -1,11 +1,13 @@
 import type { Collection, EmbeddingOption, Message, ModelOption, RecentChat } from "@/lib/types";
 
 export const mockCollections: Collection[] = [
-  { id: "all", name: "All Documents", docCount: 47, isPublic: true, color: "#10a37f" },
-  { id: "ai-tools", name: "AI Tools", docCount: 18, isPublic: true, color: "#0ea5e9" },
-  { id: "research", name: "Research Papers", docCount: 12, isPublic: true, color: "#8b5cf6" },
-  { id: "meeting", name: "Meeting Notes", docCount: 9, isPublic: false, color: "#f59e0b" },
-  { id: "tutorials", name: "Tutorials", docCount: 8, isPublic: true, color: "#ef4444" },
+  { id: "all", name: "All Documents", section: "Overview", docCount: 47, isPublic: true, color: "#10a37f" },
+  { id: "dept-hr", name: "HR", section: "Business Teams", docCount: 8, isPublic: true, color: "#ef4444" },
+  { id: "dept-marketing", name: "Marketing", section: "Business Teams", docCount: 10, isPublic: true, color: "#f59e0b" },
+  { id: "dept-sales", name: "Sales", section: "Business Teams", docCount: 7, isPublic: true, color: "#14b8a6" },
+  { id: "dept-developer", name: "Developers", section: "Engineering", docCount: 9, isPublic: true, color: "#10a37f" },
+  { id: "dept-frontend", name: "Frontend", section: "Engineering", docCount: 6, isPublic: true, color: "#0ea5e9" },
+  { id: "dept-backend", name: "Backend", section: "Engineering", docCount: 7, isPublic: true, color: "#8b5cf6" },
 ];
 
 export const mockRecentChats: RecentChat[] = [
@@ -38,7 +40,7 @@ The biggest change is that teams now keep the main answer surface simple while p
       { kind: "doc", index: 2, title: "Answer UX Notes", filename: "answer-ux.md", page: 3, collection: "Research Papers", excerpt: "Users trust grounded answers more when the citation is visible in the answer flow and richer detail opens on demand.", score: 0.88 },
       { kind: "web", index: 3, title: "How do I search my chat history in ChatGPT?", url: "https://help.openai.com/en/articles/10056348-how-do-i-search-my-chat-history-in-chatgpt", hostname: "help.openai.com", excerpt: "ChatGPT keeps search tightly integrated with the conversation and sidebar navigation.", score: 0.79 },
     ],
-    model: "gpt-4o",
+    model: "gpt-4.1",
     webSearched: true,
     createdAt: new Date(Date.now() - 1000 * 60 * 9),
   },
@@ -60,25 +62,22 @@ That gives you a more professional reading flow and keeps the interface fast eve
       { kind: "doc", index: 1, title: "Source Interaction Review", filename: "source-interactions.pdf", page: 4, collection: "AI Tools", excerpt: "Small clickable source references preserve reading momentum better than full source cards beneath every answer.", score: 0.96 },
       { kind: "doc", index: 2, title: "Trust Signals in AI UIs", filename: "trust-signals.pdf", page: 11, collection: "AI Tools", excerpt: "Good citation UX should explain relevance, provenance, and confidence without taking over the entire layout.", score: 0.9 },
     ],
-    model: "gpt-4o",
+    model: "gpt-4.1",
     createdAt: new Date(Date.now() - 1000 * 60 * 4),
   },
 ];
 
 export const mockModels: ModelOption[] = [
-  { id: "gpt-4o", provider: "openai", name: "GPT-4o", description: "Balanced reasoning and multimodal chat", contextWindow: "128K" },
-  { id: "gpt-4o-mini", provider: "openai", name: "GPT-4o mini", description: "Fast and lightweight", contextWindow: "128K", isFast: true },
-  { id: "claude-sonnet-4-6", provider: "anthropic", name: "Claude Sonnet 4.6", description: "Long-context reasoning", contextWindow: "200K" },
-  { id: "gemini-2.0-flash", provider: "google", name: "Gemini 2.0 Flash", description: "Fast retrieval-heavy workflows", contextWindow: "1M", isFast: true },
-  { id: "llama3.2", provider: "ollama", name: "Llama 3.2 (Local)", description: "Runs locally with Ollama", contextWindow: "128K", isFree: true },
+  { id: "gpt-4.1-mini", provider: "openai", name: "GPT-4.1 mini", description: "Fast and efficient for most knowledge-base questions", contextWindow: "128K", isFast: true },
+  { id: "gpt-4.1", provider: "openai", name: "GPT-4.1", description: "Stronger reasoning for harder grounded answers", contextWindow: "128K" },
+  { id: "gemini-2.5-flash", provider: "gemini", name: "Gemini 2.5 Flash", description: "Fast Gemini model for everyday grounded answers", contextWindow: "1M", isFast: true },
+  { id: "gemini-2.5-flash-lite", provider: "gemini", name: "Gemini 2.5 Flash-Lite", description: "Low-latency Gemini model for quick responses", contextWindow: "1M", isFast: true },
+  { id: "gemini-2.5-pro", provider: "gemini", name: "Gemini 2.5 Pro", description: "Higher-accuracy Gemini model for complex reasoning", contextWindow: "1M" },
 ];
 
 export const mockEmbeddings: EmbeddingOption[] = [
-  { id: "openai-large", provider: "OpenAI", name: "text-embedding-3-large", dimensions: 3072, description: "Best retrieval quality" },
   { id: "openai-small", provider: "OpenAI", name: "text-embedding-3-small", dimensions: 1536, description: "Good quality for lower cost" },
-  { id: "cohere-en", provider: "Cohere", name: "embed-english-v3.0", dimensions: 1024, description: "Strong for RAG retrieval and reranking" },
-  { id: "google", provider: "Google", name: "text-embedding-004", dimensions: 768, description: "Google embedding model" },
-  { id: "nomic-local", provider: "Ollama", name: "nomic-embed-text", dimensions: 768, description: "Runs locally with no API cost", isFree: true },
+  { id: "openai-large", provider: "OpenAI", name: "text-embedding-3-large", dimensions: 3072, description: "Best retrieval quality" },
 ];
 
 export function formatRelativeTime(date: Date): string {

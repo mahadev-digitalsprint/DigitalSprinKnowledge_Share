@@ -1,46 +1,29 @@
 "use client";
 
-import { MessageSquarePlus, Search, Upload, X, Settings } from "lucide-react";
+import { MessageSquarePlus, Upload, X, Settings } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { Logo } from "@/components/common/Logo";
 import { IconButton } from "@/components/common/IconButton";
 import { SidebarSection } from "@/components/sidebar/SidebarSection";
-import { CollectionList } from "@/components/sidebar/CollectionList";
 import { RecentChats } from "@/components/sidebar/RecentChats";
-import type { Collection, RecentChat } from "@/lib/types";
+import type { RecentChat } from "@/lib/types";
 
 type SidebarProps = {
-  collections: Collection[];
   recentChats: RecentChat[];
-  activeCollectionId: string;
   activeChatId?: string;
-  onCollectionChange: (id: string) => void;
   onSelectChat: (id: string) => void;
   onNewChat: () => void;
-  searchOpen: boolean;
-  searchQuery: string;
-  onSearchOpen: () => void;
-  onSearchClose: () => void;
-  onSearchQueryChange: (value: string) => void;
   onOpenUpload: () => void;
   isOpen: boolean;
   onClose: () => void;
 };
 
 export function Sidebar({
-  collections,
   recentChats,
-  activeCollectionId,
   activeChatId,
-  onCollectionChange,
   onSelectChat,
   onNewChat,
-  searchOpen,
-  searchQuery,
-  onSearchOpen,
-  onSearchClose,
-  onSearchQueryChange,
   onOpenUpload,
   isOpen,
   onClose,
@@ -78,47 +61,7 @@ export function Sidebar({
           </button>
         </div>
 
-        <div className="px-3 pb-3">
-          {searchOpen ? (
-            <div
-              className="flex h-10 items-center gap-2 rounded-lg border border-[var(--border-strong)] bg-[var(--surface-primary)] px-3"
-            >
-              <Search size={15} className="shrink-0 text-[var(--text-faint)]" />
-              <input
-                value={searchQuery}
-                onChange={(e) => onSearchQueryChange(e.target.value)}
-                autoFocus
-                placeholder="Search chats"
-                className="w-full bg-transparent text-sm text-[var(--text-main)] outline-none placeholder:text-[var(--text-faint)]"
-              />
-              <button
-                onClick={onSearchClose}
-                aria-label="Close chat search"
-                className="shrink-0 text-[var(--text-faint)] transition hover:text-[var(--text-main)]"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={onSearchOpen}
-              className="flex h-10 w-full items-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 text-sm text-[var(--text-subtle)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-primary)] hover:text-[var(--text-main)]"
-            >
-              <Search size={15} />
-              Search chats
-            </button>
-          )}
-        </div>
-
         <nav className="scrollbar-thin flex-1 overflow-y-auto px-2 py-2 space-y-5">
-          <SidebarSection title="Collections">
-            <CollectionList
-              collections={collections}
-              activeId={activeCollectionId}
-              onSelect={onCollectionChange}
-            />
-          </SidebarSection>
-
           <SidebarSection title="Recent">
             <RecentChats
               chats={recentChats}

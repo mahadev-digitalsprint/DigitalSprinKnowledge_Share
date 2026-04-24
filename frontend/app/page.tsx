@@ -10,10 +10,11 @@ import { UploadModal } from "@/components/modal/UploadModal";
 import { mockCollections, mockModels } from "@/lib/mock-data";
 import type { Collection, Message, RecentChat, Source } from "@/lib/types";
 import { fetchCollections, streamChat } from "@/lib/api-client";
+import { applyTheme, isThemeMode, persistTheme, type ThemeMode } from "@/lib/theme";
 
 const CHAT_STORAGE_KEY = "rag-ui-chats";
 const SETTINGS_STORAGE_KEY = "rag-ui-settings";
-const SUPPORTED_CHAT_PROVIDERS = new Set(["openai", "azure", "google"]);
+const SUPPORTED_CHAT_PROVIDERS = new Set(["openai", "gemini"]);
 
 let messageSeed = 100;
 let chatSeed = 0;
@@ -85,7 +86,7 @@ function getSupportedModelId(preferred?: string): string {
     return preferred;
   }
 
-  return supportedModels.find((model) => model.id === "gpt-4o")?.id ?? supportedModels[0].id;
+  return supportedModels[0].id;
 }
 
 function getLastMessagePreview(chat: ChatSession): string {
@@ -104,15 +105,16 @@ function createChat(collectionId: string): ChatSession {
   };
 }
 
+
 export default function ChatPage() {
   const [collections, setCollections] = useState<Collection[]>(mockCollections);
   const [chats, setChats] = useState<ChatSession[]>([INITIAL_CHAT]);
   const [activeChatId, setActiveChatId] = useState(INITIAL_CHAT.id);
-  const [modelId, setModelId] = useState("gpt-4o");
+  const [modelId, setModelId] = useState(mockModels[0]?.id ?? "gpt-4.1-mini");
+  const [theme, setTheme] = useState<ThemeMode>("dark");
+  const [defaultCollectionId, setDefaultCollectionId] = useState("all");
   const [activeCollection, setActiveCollection] = useState("all");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
@@ -154,9 +156,21 @@ export default function ChatPage() {
   useEffect(() => {
     try {
       const rawSettings = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+      let preferredCollectionId = "all";
       if (rawSettings) {
-        const parsed = JSON.parse(rawSettings) as { defaultModelId?: string };
+        const parsed = JSON.parse(rawSettings) as {
+          defaultModelId?: string;
+          defaultCollectionId?: string;
+          theme?: string;
+        };
+        if (isThemeMode(parsed.theme)) {
+          setTheme(parsed.theme);
+        }
         setModelId(getSupportedModelId(parsed.defaultModelId));
+        if (parsed.defaultCollectionId) {
+          preferredCollectionId = parsed.defaultCollectionId;
+          setDefaultCollectionId(parsed.defaultCollectionId);
+        }
       }
 
       const storedChats = reviveChats(window.localStorage.getItem(CHAT_STORAGE_KEY));
@@ -164,11 +178,24 @@ export default function ChatPage() {
         setChats(storedChats);
         setActiveChatId(storedChats[0].id);
         setActiveCollection(storedChats[0].collectionId);
+      } else {
+        setChats([
+          {
+            ...INITIAL_CHAT,
+            collectionId: preferredCollectionId,
+          },
+        ]);
+        setActiveCollection(preferredCollectionId);
       }
     } catch {
       setModelId(getSupportedModelId());
     }
   }, []);
+
+  useEffect(() => {
+    applyTheme(theme);
+    persistTheme(theme);
+  }, [theme]);
 
   useEffect(() => {
     window.localStorage.setItem(CHAT_STORAGE_KEY, serializeChats(chats));
@@ -211,15 +238,6 @@ export default function ChatPage() {
     [chats],
   );
 
-  const filteredRecentChats = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return recentChats;
-    return recentChats.filter((chat) => {
-      const haystack = `${chat.title} ${chat.lastMessage}`.toLowerCase();
-      return haystack.includes(query);
-    });
-  }, [recentChats, searchQuery]);
-
   const activeSourceMessage = useMemo(
     () =>
       messages.find((message) => message.id === sourceMessageId && (message.sources?.length ?? 0) > 0),
@@ -246,50 +264,31 @@ export default function ChatPage() {
     }
   }, [activeSourceMessage, sourceIndex, sourceMessageId]);
 
-  const handleCollectionChange = useCallback(
-    (collectionId: string) => {
-      setActiveCollection(collectionId);
-      updateChat(activeChat.id, (chat) => ({ ...chat, collectionId }));
-      setSidebarOpen(false);
-      setSourcePanelOpen(false);
-    },
-    [activeChat.id, updateChat],
-  );
-
   const handleNewChat = useCallback(() => {
-    setSearchOpen(false);
-    setSearchQuery("");
     setWebSearchEnabled(false);
+    const nextCollectionId = defaultCollectionId || activeCollection;
 
     if (activeChat.messages.length === 0) {
       updateChat(activeChat.id, (chat) => ({
         ...chat,
         title: "New chat",
-        collectionId: activeCollection,
+        collectionId: nextCollectionId,
         messages: [],
         updatedAt: new Date().toISOString(),
       }));
+      setActiveCollection(nextCollectionId);
       setSidebarOpen(false);
       setSourcePanelOpen(false);
       return;
     }
 
-    const newChat = createChat(activeCollection);
+    const newChat = createChat(nextCollectionId);
     setChats((prev) => [newChat, ...prev]);
     setActiveChatId(newChat.id);
+    setActiveCollection(nextCollectionId);
     setSidebarOpen(false);
     setSourcePanelOpen(false);
-  }, [activeChat.id, activeChat.messages.length, activeCollection, updateChat]);
-
-  const handleOpenSearch = useCallback(() => {
-    setSearchOpen(true);
-    setSidebarOpen(true);
-  }, []);
-
-  const handleCloseSearch = useCallback(() => {
-    setSearchOpen(false);
-    setSearchQuery("");
-  }, []);
+  }, [activeChat.id, activeChat.messages.length, activeCollection, defaultCollectionId, updateChat]);
 
   const handleSelectChat = useCallback(
     (chatId: string) => {
@@ -297,8 +296,6 @@ export default function ChatPage() {
       if (!selectedChat) return;
       setActiveChatId(chatId);
       setActiveCollection(selectedChat.collectionId);
-      setSearchOpen(false);
-      setSearchQuery("");
       setSidebarOpen(false);
       setSourcePanelOpen(false);
     },
@@ -348,24 +345,6 @@ export default function ChatPage() {
         updatedAt: new Date().toISOString(),
         messages: [...chat.messages, userMessage, streamingMessage],
       }));
-
-      if (!SUPPORTED_CHAT_PROVIDERS.has(provider)) {
-        updateChat(chatId, (chat) => ({
-          ...chat,
-          messages: chat.messages.map((message) =>
-            message.id === streamId
-              ? {
-                  ...message,
-                  content: `${selectedModel?.name ?? modelId} is not wired to the backend yet. Pick OpenAI, Azure OpenAI, or Gemini.`,
-                  isStreaming: false,
-                  model: modelId,
-                  webSearched: webSearchEnabled,
-                }
-              : message,
-          ),
-        }));
-        return;
-      }
 
       setIsStreaming(true);
       let cancelled = false;
@@ -512,18 +491,10 @@ export default function ChatPage() {
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--app-bg)]">
       <Sidebar
-        collections={collections}
-        recentChats={filteredRecentChats}
-        activeCollectionId={activeCollection}
+        recentChats={recentChats}
         activeChatId={activeChat.id}
-        onCollectionChange={handleCollectionChange}
         onSelectChat={handleSelectChat}
         onNewChat={handleNewChat}
-        searchOpen={searchOpen}
-        searchQuery={searchQuery}
-        onSearchOpen={handleOpenSearch}
-        onSearchClose={handleCloseSearch}
-        onSearchQueryChange={setSearchQuery}
         onOpenUpload={() => setUploadOpen(true)}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -536,7 +507,8 @@ export default function ChatPage() {
           modelId={modelId}
           onModelChange={setModelId}
           onMenuClick={() => setSidebarOpen(true)}
-          onSearchClick={handleOpenSearch}
+          theme={theme}
+          onToggleTheme={() => setTheme((value) => (value === "dark" ? "light" : "dark"))}
         />
 
         <MessageList

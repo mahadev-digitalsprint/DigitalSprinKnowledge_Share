@@ -244,6 +244,58 @@
     background: var(--code-inline-bg);
     padding: 0.1rem 0.4rem;
     font-size: 0.9em;
+    font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+  }
+
+  .message-code-block {
+    margin: 0.75rem 0;
+    padding: 1rem 1.25rem;
+    border-radius: 10px;
+    background: var(--surface-primary);
+    border: 1px solid var(--border-subtle);
+    overflow-x: auto;
+    font-size: 0.875em;
+    line-height: 1.7;
+    font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+  }
+
+  .message-code-block code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+    color: var(--text-main);
+  }
+
+  .message-blockquote {
+    margin: 0.75rem 0;
+    padding: 0.5rem 1rem;
+    border-left: 3px solid var(--accent-strong);
+    background: var(--surface-secondary);
+    border-radius: 0 8px 8px 0;
+    color: var(--text-subtle);
+  }
+
+  .message-content h1,
+  .message-content h2,
+  .message-content h3 {
+    color: var(--text-main);
+    font-weight: 600;
+  }
+
+  .message-content h1 {
+    font-size: 1.2em;
+    margin: 0.25rem 0 0.75rem;
+  }
+
+  .message-content h2 {
+    font-size: 1.05em;
+    margin: 1rem 0 0.5rem;
+  }
+
+  .message-content h3 {
+    font-size: 0.95em;
+    margin: 0.75rem 0 0.4rem;
   }
 
   .citation-pill {

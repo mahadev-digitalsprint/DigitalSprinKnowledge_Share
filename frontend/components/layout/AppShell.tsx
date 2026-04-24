@@ -8,10 +8,9 @@ import { mockCollections } from "@/lib/mock-data";
 type AppShellProps = {
   children: React.ReactNode;
   activeCollectionId?: string;
-  onCollectionChange?: (id: string) => void;
 };
 
-export function AppShell({ children, activeCollectionId = "all", onCollectionChange }: AppShellProps) {
+export function AppShell({ children, activeCollectionId = "all" }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [uploadOpen,  setUploadOpen]  = useState(false);
 
@@ -20,18 +19,10 @@ export function AppShell({ children, activeCollectionId = "all", onCollectionCha
   return (
     <div className="flex h-screen overflow-hidden bg-ds-bg">
       <Sidebar
-        collections={mockCollections}
         recentChats={[]}
-        activeCollectionId={activeCollectionId}
         activeChatId={undefined}
-        onCollectionChange={onCollectionChange ?? (() => {})}
         onSelectChat={() => {}}
         onNewChat={() => {}}
-        searchOpen={false}
-        searchQuery=""
-        onSearchOpen={() => {}}
-        onSearchClose={() => {}}
-        onSearchQueryChange={() => {}}
         onOpenUpload={() => setUploadOpen(true)}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
