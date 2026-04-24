@@ -118,15 +118,20 @@ def pick_hot_parser() -> Parser:
 
 def pick_cold_parser(heuristics: ParseHeuristics) -> Parser | None:
     registry = load_registry()
+    parser_name = ""
 
     if heuristics.high_accuracy:
-        return get_parser(registry.parsers.cold_default)
-    if heuristics.is_scanned:
-        return get_parser(registry.parsers.cold_scanned)
-    if heuristics.ext in {"pptx", "xlsx", "docx"}:
-        return get_parser(registry.parsers.cold_default)
-    if heuristics.table_density > 0.15:
-        return get_parser(registry.parsers.cold_default)
-    if heuristics.pages > 50:
-        return get_parser(registry.parsers.cold_default)
-    return None
+        parser_name = registry.parsers.cold_default
+    elif heuristics.is_scanned:
+        parser_name = registry.parsers.cold_scanned
+    elif heuristics.ext in {"pptx", "xlsx", "docx"}:
+        parser_name = registry.parsers.cold_default
+    elif heuristics.table_density > 0.15:
+        parser_name = registry.parsers.cold_default
+    elif heuristics.pages > 50:
+        parser_name = registry.parsers.cold_default
+
+    if not parser_name or parser_name in {"fast", registry.parsers.hot}:
+        return None
+
+    return get_parser(parser_name)

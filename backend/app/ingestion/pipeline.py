@@ -16,7 +16,7 @@ from app.core.parsers.registry import (
 from app.core.registry import resolve_embedding_profile
 from app.db import AsyncSessionLocal, CollectionDB, DocumentDB
 from app.events import event_bus
-from app.ingestion.chunker import chunk_pages
+from app.ingestion.chunker import Chunk, chunk_pages
 from app.retrieval.qdrant import delete_by_document, upsert_chunks
 
 logger = logging.getLogger(__name__)
@@ -33,6 +33,27 @@ def create_progress_queue(doc_id: str) -> asyncio.Queue[dict[str, Any]]:
 
 def get_progress_queue(doc_id: str) -> asyncio.Queue[dict[str, Any]] | None:
     return _queues.get(doc_id)
+
+
+def _split_roles(value: str) -> list[str]:
+    return [item for item in (value or "").split(",") if item]
+
+
+def build_tool_record_text(document: DocumentDB) -> str:
+    audience = ", ".join(_split_roles(document.audience_roles))
+    lines = [
+        f"Tool name: {document.tool_name}",
+        f"Short description: {document.short_description}",
+        f"Department: {document.department}",
+        f"Primary role: {document.primary_role}",
+        f"Helpful for: {audience}",
+        f"Why it is important: {document.importance_note}",
+        f"How it helps: {document.impact_note}",
+        f"Rating: {document.rating}/5",
+    ]
+    if document.tool_url:
+        lines.append(f"Tool link: {document.tool_url}")
+    return "\n".join(line for line in lines if line.split(': ', 1)[1])
 
 
 async def _publish_upload_event(
@@ -89,6 +110,20 @@ async def run_hot_pipeline(
 
             document = await session.get(DocumentDB, doc_id)
             source_path = document.file_path if document else ""
+            tool_name = document.tool_name if document else ""
+            department = document.department if document else ""
+            primary_role = document.primary_role if document else ""
+            audience_roles = (
+                _split_roles(document.audience_roles)
+                if document
+                else []
+            )
+            record_kind = document.record_kind if document else "document"
+            tool_url = document.tool_url if document else ""
+            short_description = document.short_description if document else ""
+            importance_note = document.importance_note if document else ""
+            impact_note = document.impact_note if document else ""
+            rating = document.rating if document else 0
 
             chunks = await asyncio.to_thread(
                 chunk_pages,
@@ -99,6 +134,16 @@ async def run_hot_pipeline(
                 quality="fast",
                 version=1,
                 source_path=source_path,
+                record_kind=record_kind,
+                tool_name=tool_name,
+                tool_url=tool_url,
+                short_description=short_description,
+                department=department,
+                primary_role=primary_role,
+                audience_roles=audience_roles,
+                importance_note=importance_note,
+                impact_note=impact_note,
+                rating=rating,
             )
 
             await _publish_upload_event(
@@ -199,6 +244,20 @@ async def run_cold_upgrade(
             )
             document = await session.get(DocumentDB, doc_id)
             source_path = document.file_path if document else ""
+            tool_name = document.tool_name if document else ""
+            department = document.department if document else ""
+            primary_role = document.primary_role if document else ""
+            audience_roles = (
+                _split_roles(document.audience_roles)
+                if document
+                else []
+            )
+            record_kind = document.record_kind if document else "document"
+            tool_url = document.tool_url if document else ""
+            short_description = document.short_description if document else ""
+            importance_note = document.importance_note if document else ""
+            impact_note = document.impact_note if document else ""
+            rating = document.rating if document else 0
 
             chunks = await asyncio.to_thread(
                 chunk_pages,
@@ -209,6 +268,16 @@ async def run_cold_upgrade(
                 quality="premium",
                 version=2,
                 source_path=source_path,
+                record_kind=record_kind,
+                tool_name=tool_name,
+                tool_url=tool_url,
+                short_description=short_description,
+                department=department,
+                primary_role=primary_role,
+                audience_roles=audience_roles,
+                importance_note=importance_note,
+                impact_note=impact_note,
+                rating=rating,
             )
             vectors = await embed_texts([chunk.text for chunk in chunks], profile=embedding_profile)
 
@@ -241,3 +310,74 @@ async def run_cold_upgrade(
             )
     except Exception:
         logger.exception("Cold upgrade failed for doc %s", doc_id)
+
+
+async def index_tool_record(
+    *,
+    doc_id: str,
+    collection_id: str,
+    org_id: str,
+    qdrant_client: Any,
+) -> None:
+    try:
+        async with AsyncSessionLocal() as session:
+            collection = await session.get(CollectionDB, collection_id)
+            document = await session.get(DocumentDB, doc_id)
+            if document is None:
+                raise RuntimeError(f"Document {doc_id} not found")
+
+            embedding_profile = resolve_embedding_profile(
+                collection.embedding_profile if collection else None
+            )
+            chunk = Chunk(
+                doc_id=doc_id,
+                collection_id=collection_id,
+                org_id=org_id,
+                text=build_tool_record_text(document),
+                page=1,
+                chunk_index=0,
+                quality="tool",
+                version=1,
+                source_path=document.tool_url,
+                tags=["tool-record"],
+                record_kind=document.record_kind,
+                tool_name=document.tool_name,
+                tool_url=document.tool_url,
+                short_description=document.short_description,
+                department=document.department,
+                primary_role=document.primary_role,
+                audience_roles=_split_roles(document.audience_roles),
+                importance_note=document.importance_note,
+                impact_note=document.impact_note,
+                rating=document.rating,
+            )
+            vectors = await embed_texts([chunk.text], profile=embedding_profile)
+            await upsert_chunks(
+                qdrant_client,
+                [chunk],
+                vectors,
+                embedding_profile=embedding_profile,
+            )
+
+            await session.execute(
+                update(DocumentDB)
+                .where(DocumentDB.id == doc_id)
+                .values(status="indexed", chunk_count=1, quality="tool")
+            )
+            if collection is not None:
+                await session.execute(
+                    update(CollectionDB)
+                    .where(CollectionDB.id == collection_id)
+                    .values(doc_count=CollectionDB.doc_count + 1)
+                )
+            await session.commit()
+    except Exception:
+        logger.exception("Tool indexing failed for doc %s", doc_id)
+        async with AsyncSessionLocal() as session:
+            await session.execute(
+                update(DocumentDB)
+                .where(DocumentDB.id == doc_id)
+                .values(status="error", error_msg="Failed to index tool record")
+            )
+            await session.commit()
+        raise

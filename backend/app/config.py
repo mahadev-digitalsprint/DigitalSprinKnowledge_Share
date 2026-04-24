@@ -5,28 +5,58 @@ from pathlib import Path
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
+from sqlalchemy.engine import make_url
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _resolve_path(value: str, *, prefer_backend: bool = False) -> str:
+    path = Path(value)
+    if path.is_absolute():
+        return str(path)
+
+    project_candidate = (PROJECT_ROOT / path).resolve()
+    backend_candidate = (BACKEND_ROOT / path).resolve()
+
+    if project_candidate.exists():
+        return str(project_candidate)
+    if backend_candidate.exists():
+        return str(backend_candidate)
+    return str(backend_candidate if prefer_backend else project_candidate)
+
+
+def _normalize_sqlite_url(value: str) -> str:
+    url = make_url(value)
+    if not url.drivername.startswith("sqlite"):
+        return value
+
+    database = url.database or ""
+    if not database or database == ":memory:":
+        return value
+
+    if len(database) >= 4 and database[0] == "/" and database[2] == ":" and database[3] in "\\/":
+        database = database[1:]
+
+    database_path = Path(database)
+    if not database_path.is_absolute():
+        database_path = (PROJECT_ROOT / database_path).resolve()
+
+    return str(url.set(database=database_path.as_posix()))
 
 
 class Settings(BaseSettings):
     openai_api_key: str = ""
-    anthropic_api_key: str = ""
-    cohere_api_key: str = ""
-    llama_cloud_api_key: str = ""
+    gemini_api_key: str = ""
 
-    database_url: str = "postgresql+asyncpg://rag:rag@localhost:5432/rag"
-    redis_url: str = "redis://localhost:6379"
-    qdrant_url: str = "http://localhost:6333"
+    database_url: str = "sqlite+aiosqlite:///./data/app.db"
+    qdrant_url: str = "local"
+    qdrant_api_key: str = ""
     qdrant_path: str = "./data/qdrant"
-
-    minio_endpoint: str = "localhost:9000"
-    minio_access_key: str = "minioadmin"
-    minio_secret_key: str = "minioadmin"
-    minio_bucket: str = "documents"
-    minio_use_ssl: bool = False
-    storage_provider: str = "minio"
     local_storage_path: str = "./data/storage"
 
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: str | list[str] = ["http://localhost:3000"]
     default_org_id: str = "default-org"
 
     registry_path: str = "config/registry.yaml"
@@ -46,12 +76,19 @@ class Settings(BaseSettings):
     @field_validator("registry_path", mode="before")
     @classmethod
     def normalize_registry_path(cls, value: str) -> str:
-        path = Path(value)
-        if not path.is_absolute():
-            return str(path)
-        return value
+        return _resolve_path(value, prefer_backend=True)
 
-    model_config = {"env_file": ".env", "extra": "ignore"}
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        return _normalize_sqlite_url(value)
+
+    @field_validator("qdrant_path", "local_storage_path", mode="before")
+    @classmethod
+    def normalize_local_paths(cls, value: str) -> str:
+        return _resolve_path(value)
+
+    model_config = {"env_file": str(PROJECT_ROOT / ".env"), "extra": "ignore"}
 
 
 settings = Settings()

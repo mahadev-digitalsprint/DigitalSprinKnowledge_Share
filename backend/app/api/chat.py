@@ -13,7 +13,7 @@ from sqlalchemy import select
 from app.api.deps import QdrantDep, SessionDep
 from app.config import settings
 from app.core.embedder import embed_query
-from app.core.llm import get_anthropic, get_openai, resolve_provider_model
+from app.core.llm import get_gemini, get_openai, resolve_chat_target
 from app.core.registry import resolve_embedding_profile
 from app.db import CollectionDB, DocumentDB
 from app.events import event_bus
@@ -23,10 +23,28 @@ from app.retrieval.qdrant import SearchRoute, search_routes
 router = APIRouter(tags=["chat"])
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are a helpful, precise assistant. Answer the user's question
-using only the provided source excerpts. Cite sources inline as [1], [2], etc.
-If the sources don't contain enough information, say so honestly.
-Keep answers concise and direct."""
+SYSTEM_PROMPT = """You are DigitalSprint's internal AI tools advisor.
+Use only the provided reference material. Do not invent facts, pricing, integrations, or capabilities.
+
+Output rules:
+- Respond in clean GitHub-flavored Markdown.
+- Never include source numbers, bracket citations, footnotes, circled citation markers, or a Sources section.
+- Use short headings and readable paragraphs.
+- Prefer bullets for use cases, fit notes, and implementation advice.
+- When comparing multiple tools, use a compact Markdown table.
+- If the user asks for one tool, use this structure:
+  ## Overview
+  One concise paragraph explaining what the tool is.
+  ## Best For
+  Bullet list of the roles, teams, or workflows where it fits.
+  ## Use Cases
+  Bullet list of practical use cases.
+  ## Similar Tools
+  Bullet list or table of related tools from the provided references.
+  ## Notes
+  Mention limits, missing details, or what to verify if the references are incomplete.
+- If the user asks for recommendations, start with a direct recommendation, then explain why.
+- If the references do not contain enough information, say exactly what is missing and still summarize what is available."""
 
 
 @router.post("/api/chat")
@@ -69,19 +87,40 @@ async def _stream(
         return
 
     doc_ids = list({doc["document_id"] for doc in raw_docs if doc["document_id"]})
-    doc_map: dict[str, str] = {}
+    doc_map: dict[str, dict[str, str]] = {}
     if doc_ids:
         result = await session.execute(
-            select(DocumentDB.id, DocumentDB.filename).where(DocumentDB.id.in_(doc_ids))
+            select(
+                DocumentDB.id,
+                DocumentDB.filename,
+                DocumentDB.record_kind,
+                DocumentDB.tool_name,
+                DocumentDB.tool_url,
+                DocumentDB.short_description,
+                DocumentDB.department,
+                DocumentDB.primary_role,
+            ).where(DocumentDB.id.in_(doc_ids))
         )
-        doc_map = {row.id: row.filename for row in result}
+        doc_map = {
+            row.id: {
+                "filename": row.filename,
+                "record_kind": row.record_kind,
+                "tool_name": row.tool_name,
+                "tool_url": row.tool_url,
+                "short_description": row.short_description,
+                "department": row.department,
+                "primary_role": row.primary_role,
+            }
+            for row in result
+        }
 
     sources = [
         {
             "kind": "doc",
             "index": index + 1,
-            "title": doc_map.get(doc["document_id"], "Document"),
-            "filename": doc_map.get(doc["document_id"], "document"),
+            "title": doc_map.get(doc["document_id"], {}).get("tool_name")
+            or doc_map.get(doc["document_id"], {}).get("filename", "Document"),
+            "filename": doc_map.get(doc["document_id"], {}).get("filename", "document"),
             "page": doc["page"],
             "collection_id": doc["collection_id"],
             "excerpt": doc["text"][:300],
@@ -89,7 +128,13 @@ async def _stream(
             "document_id": doc["document_id"],
             "quality": doc.get("quality", "fast"),
             "version": doc.get("version", 1),
+            "record_kind": doc.get("record_kind", "document"),
             "bbox": doc.get("bbox", []),
+            "tool_url": doc.get("tool_url", ""),
+            "short_description": doc.get("short_description", ""),
+            "department": doc.get("department", ""),
+            "primary_role": doc.get("primary_role", ""),
+            "rating": doc.get("rating", 0),
         }
         for index, doc in enumerate(raw_docs)
     ]
@@ -98,10 +143,18 @@ async def _stream(
 
     if raw_docs:
         context_blocks = "\n\n".join(
-            f"[{index + 1}] (page {doc['page']}, quality {doc.get('quality', 'fast')})\n{doc['text']}"
+            f"Reference {index + 1} (page {doc['page']}, quality {doc.get('quality', 'fast')}, "
+            f"department {doc.get('department', 'General')}, "
+            f"role {doc.get('primary_role', 'General')}, rating {doc.get('rating', 0)}/5)\n"
+            f"Tool: {doc.get('tool_name', 'Unknown')}\n"
+            f"Description: {doc.get('short_description', '')}\n"
+            f"Tool link: {doc.get('tool_url', '')}\n"
+            f"Why it matters: {doc.get('importance_note', '')}\n"
+            f"How it helps: {doc.get('impact_note', '')}\n"
+            f"{doc['text']}"
             for index, doc in enumerate(raw_docs)
         )
-        user_content = f"Sources:\n{context_blocks}\n\nQuestion: {body.query}"
+        user_content = f"Reference material:\n{context_blocks}\n\nQuestion: {body.query}"
     else:
         user_content = f"Question: {body.query}\n\n(No relevant documents found in this collection.)"
 
@@ -109,17 +162,13 @@ async def _stream(
     if body.history:
         messages = [{"role": msg.role, "content": msg.content} for msg in body.history[-6:]] + messages
 
-    provider, model = resolve_provider_model(body.provider, body.model)
+    provider, model = resolve_chat_target(body.provider, body.model)
 
     try:
-        if provider == "anthropic":
-            async for event in _stream_anthropic(model, messages):
-                await event_bus.publish("chat", "chat.token", {"delta": event})
-                yield f"event: token\ndata: {json.dumps({'delta': event})}\n\n"
-        else:
-            async for event in _stream_openai(model, messages):
-                await event_bus.publish("chat", "chat.token", {"delta": event})
-                yield f"event: token\ndata: {json.dumps({'delta': event})}\n\n"
+        stream = _stream_gemini(model, messages) if provider == "gemini" else _stream_openai(model, messages)
+        async for event in stream:
+            await event_bus.publish("chat", "chat.token", {"delta": event})
+            yield f"event: token\ndata: {json.dumps({'delta': event})}\n\n"
     except Exception as exc:
         logger.exception("LLM streaming failed")
         payload = {"error": str(exc)}
@@ -171,19 +220,6 @@ async def _load_search_routes(session: SessionDep, collection_id: str) -> list[S
     ]
 
 
-async def _stream_anthropic(model: str, messages: list[dict]) -> AsyncGenerator[str, None]:
-    client = get_anthropic()
-    async with client.messages.stream(
-        model=model,
-        max_tokens=1024,
-        system=SYSTEM_PROMPT,
-        messages=messages,
-    ) as stream:
-        async for text in stream.text_stream:
-            if text:
-                yield text
-
-
 async def _stream_openai(model: str, messages: list[dict]) -> AsyncGenerator[str, None]:
     client = get_openai()
     stream = await client.chat.completions.create(
@@ -196,3 +232,21 @@ async def _stream_openai(model: str, messages: list[dict]) -> AsyncGenerator[str
         delta = chunk.choices[0].delta.content or ""
         if delta:
             yield delta
+
+
+async def _stream_gemini(model: str, messages: list[dict]) -> AsyncGenerator[str, None]:
+    client = get_gemini()
+    prompt = "\n\n".join(
+        f"{message['role'].upper()}:\n{message['content']}"
+        for message in messages
+        if message.get("content")
+    )
+    contents = f"{SYSTEM_PROMPT}\n\n{prompt}"
+    stream = await client.aio.models.generate_content_stream(
+        model=model,
+        contents=contents,
+    )
+    async for chunk in stream:
+        text = getattr(chunk, "text", None)
+        if text:
+            yield text

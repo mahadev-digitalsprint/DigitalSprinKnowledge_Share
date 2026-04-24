@@ -7,6 +7,7 @@ from openai import AsyncOpenAI
 
 from app.config import settings
 from app.core.http import get_async_http_client
+from app.core.llm import require_openai_api_key
 from app.core.registry import get_embedding_profile, resolve_embedding_profile
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 @lru_cache(maxsize=1)
 def _openai_client() -> AsyncOpenAI:
     return AsyncOpenAI(
-        api_key=settings.openai_api_key,
+        api_key=require_openai_api_key(),
         http_client=get_async_http_client(),
     )
 

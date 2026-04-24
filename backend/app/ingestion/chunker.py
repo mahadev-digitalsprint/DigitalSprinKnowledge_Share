@@ -5,8 +5,6 @@ import re
 import uuid
 from dataclasses import dataclass, field
 
-import tiktoken
-
 from app.core.parsers.base import ParsedPage
 
 logger = logging.getLogger(__name__)
@@ -22,15 +20,7 @@ class _WhitespaceEncoding:
         return "".join(tokens)
 
 
-def _load_encoding():
-    try:
-        return tiktoken.get_encoding("cl100k_base")
-    except Exception as exc:
-        logger.warning("Falling back to whitespace chunking because tiktoken is unavailable: %s", exc)
-        return _WhitespaceEncoding()
-
-
-_enc = _load_encoding()
+_enc = _WhitespaceEncoding()
 
 
 @dataclass
@@ -48,6 +38,16 @@ class Chunk:
     bbox: list[float] = field(default_factory=list)
     source_path: str = ""
     tags: list[str] = field(default_factory=list)
+    record_kind: str = "document"
+    tool_name: str = ""
+    tool_url: str = ""
+    short_description: str = ""
+    department: str = ""
+    primary_role: str = ""
+    audience_roles: list[str] = field(default_factory=list)
+    importance_note: str = ""
+    impact_note: str = ""
+    rating: int = 0
 
 
 def chunk_pages(
@@ -59,6 +59,16 @@ def chunk_pages(
     quality: str = "fast",
     version: int = 1,
     source_path: str = "",
+    record_kind: str = "document",
+    tool_name: str = "",
+    tool_url: str = "",
+    short_description: str = "",
+    department: str = "",
+    primary_role: str = "",
+    audience_roles: list[str] | None = None,
+    importance_note: str = "",
+    impact_note: str = "",
+    rating: int = 0,
     max_tokens: int | None = None,
     overlap: int | None = None,
 ) -> list[Chunk]:
@@ -93,6 +103,16 @@ def chunk_pages(
                         bbox=list(page.bbox),
                         source_path=source_path,
                         tags=list(page.metadata.get("tags", [])),
+                        record_kind=record_kind,
+                        tool_name=tool_name,
+                        tool_url=tool_url,
+                        short_description=short_description,
+                        department=department,
+                        primary_role=primary_role,
+                        audience_roles=list(audience_roles or []),
+                        importance_note=importance_note,
+                        impact_note=impact_note,
+                        rating=rating,
                     )
                 )
                 chunk_index += 1

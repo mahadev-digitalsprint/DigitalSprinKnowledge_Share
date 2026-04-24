@@ -1,29 +1,22 @@
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
-sse-starlette==2.1.3
 python-multipart==0.0.12
-pydantic==2.10.3
-pydantic-settings==2.6.1
+pydantic==2.13.1
+pydantic-settings==2.13.1
 
 # Database
 sqlalchemy[asyncio]==2.0.36
-asyncpg==0.30.0
+aiosqlite==0.20.0
 
 # Vector store
 qdrant-client==1.12.1
 
 # LLM
 openai==1.57.4
-anthropic==0.40.0
+google-genai==1.49.0
 
-# Parsing — hot path
+# Parsing
 pypdf==5.1.0
-
-# Chunking
-tiktoken==0.8.0
-
-# File storage
-minio==7.2.12
 
 # Utils
 httpx==0.28.1

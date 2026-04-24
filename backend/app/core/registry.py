@@ -44,7 +44,20 @@ class RegistryConfig(BaseModel):
 
 
 def _registry_file() -> Path:
-    return Path(settings.registry_path).resolve()
+    configured = Path(settings.registry_path)
+    if configured.is_absolute():
+        return configured
+
+    cwd_candidate = (Path.cwd() / configured).resolve()
+    if cwd_candidate.exists():
+        return cwd_candidate
+
+    backend_root = Path(__file__).resolve().parents[2]
+    backend_candidate = (backend_root / configured).resolve()
+    if backend_candidate.exists():
+        return backend_candidate
+
+    return cwd_candidate
 
 
 @lru_cache(maxsize=1)
