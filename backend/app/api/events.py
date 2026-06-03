@@ -7,7 +7,9 @@ from typing import AsyncGenerator
 from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 
+from app.api.deps import CurrentUserDep
 from app.config import settings
+from app.core.rbac import require_permission
 from app.events import event_bus
 
 router = APIRouter(tags=["events"])
@@ -17,7 +19,9 @@ router = APIRouter(tags=["events"])
 async def multiplex_events(
     topics: str = Query("uploads,chat"),
     doc_id: str | None = Query(None),
+    current_user: CurrentUserDep = ...,  # type: ignore[assignment]
 ) -> StreamingResponse:
+    require_permission(current_user, "events:read")
     topic_set = {item.strip() for item in topics.split(",") if item.strip()}
 
     async def generate() -> AsyncGenerator[str, None]:

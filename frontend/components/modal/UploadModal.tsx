@@ -7,12 +7,14 @@ import { FileDropZone } from "@/components/modal/FileDropZone";
 import { UploadFileRow } from "@/components/modal/UploadFileRow";
 import type { Collection, UploadFile, UploadMetadata, UploadStatus } from "@/lib/types";
 import { uploadDocument, watchUploadEvents } from "@/lib/api-client";
+import type { FrontendAuthContext } from "@/lib/rbac";
 
 type UploadModalProps = {
   open: boolean;
   onClose: () => void;
   preferredCollectionId?: string;
   collections: Collection[];
+  auth: FrontendAuthContext;
 };
 
 let nextId = 0;
@@ -59,7 +61,13 @@ const INITIAL_METADATA: UploadMetadata = {
   rating: 4,
 };
 
-export function UploadModal({ open, onClose, preferredCollectionId, collections }: UploadModalProps) {
+export function UploadModal({
+  open,
+  onClose,
+  preferredCollectionId,
+  collections,
+  auth,
+}: UploadModalProps) {
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [targetColl, setTargetColl] = useState<string>("");
   const [metadata, setMetadata] = useState<UploadMetadata>(INITIAL_METADATA);
@@ -184,7 +192,7 @@ export function UploadModal({ open, onClose, preferredCollectionId, collections 
     if (pending.length === 0) {
       try {
         setToolSubmitState("saving");
-        await uploadDocument(null, payload);
+        await uploadDocument(null, payload, auth);
         setToolSubmitState("done");
       } catch (err) {
         setToolSubmitState("error");
@@ -203,7 +211,7 @@ export function UploadModal({ open, onClose, preferredCollectionId, collections 
 
     for (const queuedFile of pending) {
       try {
-        const accepted = await uploadDocument(queuedFile.file, payload);
+        const accepted = await uploadDocument(queuedFile.file, payload, auth);
 
         setFiles((prev) =>
           prev.map((file) =>
@@ -213,6 +221,7 @@ export function UploadModal({ open, onClose, preferredCollectionId, collections 
 
         const cleanup = watchUploadEvents(
           accepted.doc_id,
+          auth,
           (evt) => {
             setFiles((prev) =>
               prev.map((file) => {

@@ -7,14 +7,27 @@ cp .env.example .env
 ```
 
 ## 2. Start the backend
-```bash
+
+**Kill port 8000 first (Windows):**
+```powershell
+# PowerShell — kill anything on port 8000
+$pids = (netstat -ano | Select-String ":8000\s" | ForEach-Object { ($_ -split '\s+')[-1] } | Sort-Object -Unique)
+$pids | ForEach-Object { taskkill /PID $_ /F }
+```
+
+**Setup venv (first time only):**
+```powershell
 cd backend
 python -m venv .venv
-.venv\Scripts\activate        # Windows
-# source .venv/bin/activate   # Mac/Linux
+.venv\Scripts\activate
 pip install -r requirements.txt
 cd ..
-uvicorn app.main:app --app-dir backend
+```
+
+**Run backend:**
+```powershell
+# From repo root, with root-level venv active
+$env:PYTHONPATH="backend"; python -m uvicorn app.main:app --port 
 ```
 
 Backend: `http://localhost:8000`
@@ -29,6 +42,7 @@ Backend: `http://localhost:8000`
 **Dev notes:**
 - Embedded Qdrant is single-process — stop any old backend process before starting a new one.
 - On Windows, `--reload` can contend for `backend/data/qdrant` and trigger a lock error; omit it.
+- Use `python -m uvicorn` (not bare `uvicorn`) to avoid launcher path errors on Windows.
 
 ## 3. Start the frontend
 ```bash
@@ -61,7 +75,7 @@ Edit `backend/config/registry.yaml` to change:
 ## Health check
 ```bash
 curl http://localhost:8000/health
-```
+```8000
 
 ## Folder structure
 ```

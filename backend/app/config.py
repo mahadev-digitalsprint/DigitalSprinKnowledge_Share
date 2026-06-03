@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     registry_path: str = "config/registry.yaml"
     max_inline_upload_mb: int = 10
     sse_heartbeat_seconds: int = 15
+    auth_secret: str = "change-me-in-env"
+    auth_token_ttl_hours: int = 72
 
     @field_validator("cors_origins", mode="before")
     @classmethod

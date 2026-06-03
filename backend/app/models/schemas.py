@@ -132,3 +132,29 @@ class UploadEvent(BaseModel):
     stage: str            # accepted | parsing | parsed_fast | chunking | embedding | indexing | searchable | upgraded | error
     doc_id: str
     detail: dict = Field(default_factory=dict)
+
+
+class SignupRequest(BaseModel):
+    email: str
+    full_name: str = ""
+    password: str = Field(min_length=8)
+    role: str = "employee"
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class AuthUser(BaseModel):
+    id: str
+    email: str
+    full_name: str
+    role: str
+    allowed_collections: list[str]
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: AuthUser

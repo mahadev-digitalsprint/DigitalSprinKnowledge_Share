@@ -6,8 +6,9 @@ from typing import Sequence
 from fastapi import APIRouter, HTTPException, Response
 from sqlalchemy import select
 
-from app.api.deps import SessionDep
+from app.api.deps import CurrentUserDep, SessionDep
 from app.config import settings
+from app.core.rbac import ensure_collection_access, require_permission
 from app.core.registry import resolve_embedding_profile
 from app.db import CollectionDB, DocumentDB
 from app.models.schemas import (
@@ -21,18 +22,25 @@ router = APIRouter(prefix="/api/collections", tags=["collections"])
 
 
 @router.get("", response_model=list[CollectionOut])
-async def list_collections(session: SessionDep) -> Sequence[CollectionDB]:
+async def list_collections(session: SessionDep, current_user: CurrentUserDep) -> Sequence[CollectionDB]:
+    require_permission(current_user, "collections:read")
     result = await session.execute(
         select(CollectionDB).where(CollectionDB.org_id == settings.default_org_id)
     )
-    return result.scalars().all()
+    collections = list(result.scalars().all())
+    if "*" in current_user.allowed_collections:
+        return collections
+    return [collection for collection in collections if collection.id in current_user.allowed_collections]
 
 
 @router.get("/{collection_id}/summary", response_model=CollectionSummaryOut)
 async def get_collection_summary(
     collection_id: str,
     session: SessionDep,
+    current_user: CurrentUserDep,
 ) -> CollectionSummaryOut:
+    require_permission(current_user, "collections:read")
+    ensure_collection_access(current_user, collection_id)
     if collection_id == "all":
         collection_name = "All Documents"
         stmt = (
@@ -90,7 +98,12 @@ async def get_collection_summary(
 
 
 @router.post("", response_model=CollectionOut, status_code=201)
-async def create_collection(body: CollectionCreate, session: SessionDep) -> CollectionDB:
+async def create_collection(
+    body: CollectionCreate,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> CollectionDB:
+    require_permission(current_user, "collections:write")
     coll = CollectionDB(
         id=str(uuid.uuid4()),
         org_id=settings.default_org_id,
@@ -108,7 +121,13 @@ async def create_collection(body: CollectionCreate, session: SessionDep) -> Coll
 
 
 @router.delete("/{collection_id}", status_code=204, response_class=Response)
-async def delete_collection(collection_id: str, session: SessionDep) -> Response:
+async def delete_collection(
+    collection_id: str,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> Response:
+    require_permission(current_user, "collections:write")
+    ensure_collection_access(current_user, collection_id)
     result = await session.execute(
         select(CollectionDB).where(CollectionDB.id == collection_id)
     )

@@ -90,7 +90,24 @@ class DocumentDB(Base):
     importance_note: Mapped[str] = mapped_column(String, default="")
     impact_note: Mapped[str] = mapped_column(String, default="")
     rating: Mapped[int] = mapped_column(Integer, default=0)
+    full_text: Mapped[str] = mapped_column(String, default="")
     error_msg: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+
+
+class UserDB(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    org_id: Mapped[str] = mapped_column(String, index=True)
+    email: Mapped[str] = mapped_column(String, unique=True, index=True)
+    full_name: Mapped[str] = mapped_column(String, default="")
+    password_hash: Mapped[str] = mapped_column(String)
+    role: Mapped[str] = mapped_column(String, default="employee")
+    allowed_collections: Mapped[str] = mapped_column(String, default="*")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -121,6 +138,10 @@ def _run_schema_updates(sync_conn) -> None:
     _ensure_column(sync_conn, "documents", "importance_note", "VARCHAR DEFAULT ''")
     _ensure_column(sync_conn, "documents", "impact_note", "VARCHAR DEFAULT ''")
     _ensure_column(sync_conn, "documents", "rating", "INTEGER DEFAULT 0")
+    _ensure_column(sync_conn, "documents", "full_text", "TEXT DEFAULT ''")
+    _ensure_column(sync_conn, "users", "full_name", "VARCHAR DEFAULT ''")
+    _ensure_column(sync_conn, "users", "role", "VARCHAR DEFAULT 'employee'")
+    _ensure_column(sync_conn, "users", "allowed_collections", "VARCHAR DEFAULT '*'")
 
 
 async def create_tables() -> None:
@@ -152,3 +173,4 @@ async def create_tables() -> None:
             text("UPDATE documents SET impact_note = '' WHERE impact_note IS NULL")
         )
         await conn.execute(text("UPDATE documents SET rating = 0 WHERE rating IS NULL"))
+        await conn.execute(text("UPDATE documents SET full_text = '' WHERE full_text IS NULL"))

@@ -9,9 +9,10 @@ from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
-from app.api.deps import QdrantDep, SessionDep
+from app.api.deps import CurrentUserDep, QdrantDep, SessionDep
 from app.config import settings
 from app.core.llm import require_openai_api_key
+from app.core.rbac import ensure_collection_access, require_permission
 from app.events import event_bus
 from app.db import CollectionDB, DocumentDB
 from app.ingestion.pipeline import (
@@ -46,7 +47,10 @@ async def upload_document(
     high_accuracy: bool = Form(False),
     session: SessionDep = ...,  # type: ignore[assignment]
     qdrant: QdrantDep = ...,  # type: ignore[assignment]
+    current_user: CurrentUserDep = ...,  # type: ignore[assignment]
 ) -> UploadAccepted:
+    require_permission(current_user, "documents:write")
+    ensure_collection_access(current_user, collection_id)
     try:
         require_openai_api_key()
     except RuntimeError as exc:
@@ -65,7 +69,7 @@ async def upload_document(
     if not impact_note.strip():
         raise HTTPException(status_code=400, detail="impact_note is required")
     if not primary_role.strip():
-        raise HTTPException(status_code=400, detail="primary_role is required")
+        primary_role = "General"
     if rating < 1 or rating > 5:
         raise HTTPException(status_code=400, detail="rating must be between 1 and 5")
     try:
@@ -164,7 +168,11 @@ async def upload_document(
 
 
 @router.get("/api/events/{doc_id}")
-async def upload_events(doc_id: str) -> StreamingResponse:
+async def upload_events(
+    doc_id: str,
+    current_user: CurrentUserDep,
+) -> StreamingResponse:
+    require_permission(current_user, "events:read")
     async def generate() -> AsyncGenerator[str, None]:
         for _ in range(20):
             queue = get_progress_queue(doc_id)
@@ -201,7 +209,10 @@ async def upload_events(doc_id: str) -> StreamingResponse:
 async def list_documents(
     collection_id: str = "all",
     session: SessionDep = ...,  # type: ignore[assignment]
+    current_user: CurrentUserDep = ...,  # type: ignore[assignment]
 ) -> list[DocumentDB]:
+    require_permission(current_user, "documents:read")
+    ensure_collection_access(current_user, collection_id)
     stmt = select(DocumentDB).where(DocumentDB.org_id == settings.default_org_id)
     if collection_id != "all":
         stmt = stmt.where(DocumentDB.collection_id == collection_id)
@@ -209,16 +220,38 @@ async def list_documents(
     return list(result.scalars().all())
 
 
+@router.delete("/api/documents", status_code=204, response_class=Response)
+async def delete_all_documents(
+    session: SessionDep = ...,  # type: ignore[assignment]
+    qdrant: QdrantDep = ...,  # type: ignore[assignment]
+    current_user: CurrentUserDep = ...,  # type: ignore[assignment]
+) -> Response:
+    require_permission(current_user, "documents:delete")
+    result = await session.execute(
+        select(DocumentDB).where(DocumentDB.org_id == settings.default_org_id)
+    )
+    docs = result.scalars().all()
+    for doc in docs:
+        await delete_by_document(qdrant, doc.id, embedding_profile=None)
+    for doc in docs:
+        await session.delete(doc)
+    await session.commit()
+    return Response(status_code=204)
+
+
 @router.delete("/api/documents/{doc_id}", status_code=204, response_class=Response)
 async def delete_document(
     doc_id: str,
     session: SessionDep = ...,  # type: ignore[assignment]
     qdrant: QdrantDep = ...,  # type: ignore[assignment]
+    current_user: CurrentUserDep = ...,  # type: ignore[assignment]
 ) -> Response:
+    require_permission(current_user, "documents:delete")
     result = await session.execute(select(DocumentDB).where(DocumentDB.id == doc_id))
     doc = result.scalar_one_or_none()
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
+    ensure_collection_access(current_user, doc.collection_id)
 
     await delete_by_document(qdrant, doc_id, embedding_profile=None)
     await session.delete(doc)

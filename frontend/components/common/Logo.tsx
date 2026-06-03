@@ -7,22 +7,22 @@ type LogoProps = {
 };
 
 const sizes = {
-  sm: { iconSize: 28, fontSize: 13, gap: 10 },
-  md: { iconSize: 32, fontSize: 15, gap: 11 },
-  lg: { iconSize: 40, fontSize: 19, gap: 13 },
+  sm: { iconHeight: 22, fontSize: 13, gap: 10 },
+  md: { iconHeight: 26, fontSize: 15, gap: 11 },
+  lg: { iconHeight: 32, fontSize: 19, gap: 13 },
 };
 
 export function Logo({ className, size = "md", collapsed = false }: LogoProps) {
-  const { iconSize, fontSize, gap } = sizes[size];
+  const { iconHeight, fontSize, gap } = sizes[size];
 
   const iconMark = (
     <img
       aria-hidden={!collapsed}
-      aria-label={collapsed ? "Knowledge RAG" : undefined}
-      className="rounded-xl"
+      aria-label={collapsed ? "DigitalSprint AI" : undefined}
+      className="shrink-0 rounded-sm"
       src="/assets/logo-digitalsprint-main.png"
-      alt={collapsed ? "Knowledge RAG" : ""}
-      style={{ width: iconSize, height: iconSize }}
+      alt={collapsed ? "DigitalSprint AI" : ""}
+      style={{ height: iconHeight, width: "auto", objectFit: "contain" }}
     />
   );
 
@@ -35,9 +35,10 @@ export function Logo({ className, size = "md", collapsed = false }: LogoProps) {
       {iconMark}
       <span
         style={{
-          fontWeight: 700,
-          fontSize,
-          color: "var(--text-main)",
+          fontWeight: 500,
+          fontSize: fontSize - 2,
+          color: "var(--text-subtle)",
+          letterSpacing: "0.02em",
         }}
         aria-label="Knowledge RAG"
       >

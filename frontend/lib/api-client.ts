@@ -1,3 +1,4 @@
+import { buildAuthHeaders, buildAuthQuery, type FrontendAuthContext } from "@/lib/rbac";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export type UploadDocumentPayload = {
@@ -11,6 +12,19 @@ export type UploadDocumentPayload = {
   importanceNote: string;
   impactNote: string;
   rating: number;
+};
+export type AuthUser = {
+  id: string;
+  email: string;
+  full_name: string;
+  role: "admin" | "employee";
+  allowed_collections: string[];
+};
+
+export type AuthResponse = {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -88,8 +102,10 @@ export type ChatStreamEvent =
 
 // ── Collections ───────────────────────────────────────────────────────────────
 
-export async function fetchCollections(): Promise<ApiCollection[]> {
-  const res = await fetch(`${API_URL}/api/collections`);
+export async function fetchCollections(auth: FrontendAuthContext): Promise<ApiCollection[]> {
+  const res = await fetch(`${API_URL}/api/collections`, {
+    headers: buildAuthHeaders(auth),
+  });
   if (!res.ok) throw new Error(`Failed to load collections: ${res.status}`);
   return res.json();
 }
@@ -98,20 +114,31 @@ export async function createCollection(body: {
   name: string;
   description?: string;
   color?: string;
-}): Promise<ApiCollection> {
+}, auth: FrontendAuthContext): Promise<ApiCollection> {
   const res = await fetch(`${API_URL}/api/collections`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...buildAuthHeaders(auth) },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Failed to create collection: ${res.status}`);
   return res.json();
 }
 
+export async function deleteAllDocuments(auth: FrontendAuthContext): Promise<void> {
+  const res = await fetch(`${API_URL}/api/documents`, {
+    method: "DELETE",
+    headers: buildAuthHeaders(auth),
+  });
+  if (!res.ok) throw new Error(`Failed to delete documents: ${res.status}`);
+}
+
 export async function fetchCollectionSummary(
   collectionId: string,
+  auth: FrontendAuthContext,
 ): Promise<ApiCollectionSummary> {
-  const res = await fetch(`${API_URL}/api/collections/${collectionId}/summary`);
+  const res = await fetch(`${API_URL}/api/collections/${collectionId}/summary`, {
+    headers: buildAuthHeaders(auth),
+  });
   if (!res.ok) throw new Error(`Failed to load collection summary: ${res.status}`);
   return res.json();
 }
@@ -121,6 +148,7 @@ export async function fetchCollectionSummary(
 export async function uploadDocument(
   file: File | null,
   payload: UploadDocumentPayload,
+  auth: FrontendAuthContext,
 ): Promise<UploadAccepted> {
   const form = new FormData();
   if (file) form.append("file", file);
@@ -137,6 +165,7 @@ export async function uploadDocument(
 
   const res = await fetch(`${API_URL}/api/upload`, {
     method: "POST",
+    headers: buildAuthHeaders(auth),
     body: form,
   });
   if (!res.ok) {
@@ -148,11 +177,15 @@ export async function uploadDocument(
 
 export function watchUploadEvents(
   docId: string,
+  auth: FrontendAuthContext,
   onEvent: (e: UploadProgressEvent) => void,
   onComplete: () => void,
   onError: (msg: string) => void,
 ): () => void {
-  const es = new EventSource(`${API_URL}/api/events?topics=uploads&doc_id=${docId}`);
+  const authQuery = buildAuthQuery(auth);
+  const es = new EventSource(
+    `${API_URL}/api/events?topics=uploads&doc_id=${docId}&${authQuery}`,
+  );
 
   const emit = (stage: UploadProgressEvent["stage"], data: Record<string, unknown>) => {
     onEvent({
@@ -213,13 +246,14 @@ export function watchUploadEvents(
 export async function* streamChat(params: {
   query: string;
   collectionId: string;
+  auth: FrontendAuthContext;
   provider?: string;
   model?: string;
   history?: Array<{ role: string; content: string }>;
 }): AsyncGenerator<ChatStreamEvent> {
   const res = await fetch(`${API_URL}/api/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...buildAuthHeaders(params.auth) },
     body: JSON.stringify({
       query: params.query,
       collection_id: params.collectionId,
@@ -273,4 +307,36 @@ export async function* streamChat(params: {
       }
     }
   }
+}
+
+export async function signup(body: {
+  email: string;
+  full_name: string;
+  password: string;
+  role: "admin" | "employee";
+}): Promise<AuthResponse> {
+  const res = await fetch(`${API_URL}/api/auth/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`Signup failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function login(body: {
+  email: string;
+  password: string;
+}): Promise<AuthResponse> {
+  const res = await fetch(`${API_URL}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`Login failed: ${res.status}`);
+  }
+  return res.json();
 }

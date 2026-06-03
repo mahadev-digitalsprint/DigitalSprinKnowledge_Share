@@ -169,10 +169,11 @@ async def run_hot_pipeline(
                 embedding_profile=embedding_profile,
             )
 
+            full_text = "\n\n".join(p.text for p in pages if getattr(p, "text", ""))
             await session.execute(
                 update(DocumentDB)
                 .where(DocumentDB.id == doc_id)
-                .values(status="indexed", chunk_count=len(chunks), quality="fast")
+                .values(status="indexed", chunk_count=len(chunks), quality="fast", full_text=full_text[:50000])
             )
             if collection is not None:
                 await session.execute(
@@ -362,7 +363,7 @@ async def index_tool_record(
             await session.execute(
                 update(DocumentDB)
                 .where(DocumentDB.id == doc_id)
-                .values(status="indexed", chunk_count=1, quality="tool")
+                .values(status="indexed", chunk_count=1, quality="tool", full_text=chunk.text)
             )
             if collection is not None:
                 await session.execute(
