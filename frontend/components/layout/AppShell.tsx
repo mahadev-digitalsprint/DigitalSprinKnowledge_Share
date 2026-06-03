@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { UploadModal } from "@/components/modal/UploadModal";
 import { mockCollections } from "@/lib/mock-data";
-import { loadAuthContext } from "@/lib/rbac";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -14,7 +13,6 @@ type AppShellProps = {
 export function AppShell({ children, activeCollectionId = "all" }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [uploadOpen,  setUploadOpen]  = useState(false);
-  const auth = loadAuthContext();
 
   const activeCollection = mockCollections.find(c => c.id === activeCollectionId);
 
@@ -39,7 +37,6 @@ export function AppShell({ children, activeCollectionId = "all" }: AppShellProps
         onClose={() => setUploadOpen(false)}
         preferredCollectionId={activeCollection?.id}
         collections={mockCollections}
-        auth={auth}
       />
     </div>
   );

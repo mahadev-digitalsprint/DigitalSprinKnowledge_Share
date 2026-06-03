@@ -28,7 +28,6 @@ class SearchRoute:
     embedding_profile: str
     org_id: str
     collection_id: str | None = None
-    department: str | None = None
 
 
 def _build_filter(org_id: str, collection_id: str | None = None, **extra: Any) -> Filter:
@@ -152,11 +151,10 @@ async def search_routes(
     for route in routes:
         collection_name = get_qdrant_collection_name(route.embedding_profile)
         vector = query_vectors[route.embedding_profile]
-        dept_filter = {"department": route.department} if route.department else {}
         response = await client.query_points(
             collection_name=collection_name,
             query=vector,
-            query_filter=_build_filter(route.org_id, route.collection_id, **dept_filter),
+            query_filter=_build_filter(route.org_id, route.collection_id),
             limit=max(limit, 8),
             with_payload=True,
         )

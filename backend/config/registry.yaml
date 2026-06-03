@@ -15,16 +15,11 @@ llms:
     model: gemini-2.5-pro
 
 embedding_defaults:
-  default: gemini-embedding
-  multilingual: gemini-embedding
-  local_fallback: gemini-embedding
+  default: openai-small
+  multilingual: openai-small
+  local_fallback: openai-small
 
 embeddings:
-  gemini-embedding:
-    provider: gemini
-    model: text-embedding-004
-    dimensions: 768
-    qdrant_collection: docs_gemini_768
   openai-small:
     provider: openai
     model: text-embedding-3-small

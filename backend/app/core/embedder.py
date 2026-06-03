@@ -5,8 +5,9 @@ from functools import lru_cache
 
 from openai import AsyncOpenAI
 
+from app.config import settings
 from app.core.http import get_async_http_client
-from app.core.llm import get_gemini, require_openai_api_key
+from app.core.llm import require_openai_api_key
 from app.core.registry import get_embedding_profile, resolve_embedding_profile
 
 logger = logging.getLogger(__name__)
@@ -28,28 +29,6 @@ def get_qdrant_collection_name(profile_name: str | None = None) -> str:
     return get_embedding_profile(profile_name).qdrant_collection
 
 
-async def _embed_openai(texts: list[str], model: str, resolved: str) -> list[list[float]]:
-    client = _openai_client()
-    all_vecs: list[list[float]] = []
-    for i in range(0, len(texts), 512):
-        batch = texts[i : i + 512]
-        resp = await client.embeddings.create(model=model, input=batch)
-        all_vecs.extend(item.embedding for item in resp.data)
-        logger.debug("Embedded %d/%d texts with %s", i + len(batch), len(texts), resolved)
-    return all_vecs
-
-
-async def _embed_gemini(texts: list[str], model: str, resolved: str) -> list[list[float]]:
-    client = get_gemini()
-    all_vecs: list[list[float]] = []
-    for i in range(0, len(texts), 100):
-        batch = texts[i : i + 100]
-        resp = await client.aio.models.embed_content(model=model, contents=batch)
-        all_vecs.extend(e.values for e in (resp.embeddings or []))
-        logger.debug("Embedded %d/%d texts with %s", i + len(batch), len(texts), resolved)
-    return all_vecs
-
-
 async def embed_texts(texts: list[str], profile: str | None = None) -> list[list[float]]:
     if not texts:
         return []
@@ -57,14 +36,22 @@ async def embed_texts(texts: list[str], profile: str | None = None) -> list[list
     resolved = resolve_embedding_profile(profile)
     cfg = get_embedding_profile(resolved)
 
-    if cfg.provider == "openai":
-        return await _embed_openai(texts, cfg.model, resolved)
-    if cfg.provider == "gemini":
-        return await _embed_gemini(texts, cfg.model, resolved)
+    if cfg.provider != "openai":
+        raise RuntimeError(
+            f"Embedding provider '{cfg.provider}' for profile '{resolved}' is not wired yet."
+        )
 
-    raise RuntimeError(
-        f"Embedding provider '{cfg.provider}' for profile '{resolved}' is not wired yet."
-    )
+    client = _openai_client()
+    batch_size = 512
+    all_vecs: list[list[float]] = []
+
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i : i + batch_size]
+        resp = await client.embeddings.create(model=cfg.model, input=batch)
+        all_vecs.extend(item.embedding for item in resp.data)
+        logger.debug("Embedded %d/%d texts with %s", i + len(batch), len(texts), resolved)
+
+    return all_vecs
 
 
 async def embed_query(text: str, profile: str | None = None) -> list[float]:

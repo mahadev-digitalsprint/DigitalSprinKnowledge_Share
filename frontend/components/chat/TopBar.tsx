@@ -3,7 +3,6 @@ import { cn } from "@/lib/cn";
 import { IconButton } from "@/components/common/IconButton";
 import { ModelSelector } from "@/components/chat/ModelSelector";
 import type { ThemeMode } from "@/lib/theme";
-import type { UserRole } from "@/lib/rbac";
 
 type TopBarProps = {
   collectionName: string;
@@ -13,8 +12,6 @@ type TopBarProps = {
   onMenuClick: () => void;
   theme: ThemeMode;
   onToggleTheme: () => void;
-  role: UserRole;
-  onRoleChange: (role: UserRole) => void;
   className?: string;
 };
 
@@ -26,8 +23,6 @@ export function TopBar({
   onMenuClick,
   theme,
   onToggleTheme,
-  role,
-  onRoleChange,
   className,
 }: TopBarProps) {
   return (
@@ -68,15 +63,6 @@ export function TopBar({
         >
           {theme === "dark" ? <SunMedium size={14} /> : <MoonStar size={14} />}
         </button>
-        <select
-          value={role}
-          onChange={(event) => onRoleChange(event.target.value as UserRole)}
-          className="h-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-primary)] px-2 text-xs text-[var(--text-main)]"
-          title="Role"
-        >
-          <option value="admin">Admin</option>
-          <option value="employee">Employee</option>
-        </select>
         <ModelSelector value={modelId} onChange={onModelChange} />
       </div>
     </header>

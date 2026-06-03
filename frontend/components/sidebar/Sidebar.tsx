@@ -17,7 +17,6 @@ type SidebarProps = {
   onOpenUpload: () => void;
   isOpen: boolean;
   onClose: () => void;
-  canUpload?: boolean;
 };
 
 export function Sidebar({
@@ -28,7 +27,6 @@ export function Sidebar({
   onOpenUpload,
   isOpen,
   onClose,
-  canUpload = true,
 }: SidebarProps) {
   return (
     <>
@@ -63,7 +61,7 @@ export function Sidebar({
           </button>
         </div>
 
-        <nav className="scrollbar-thin flex-1 overflow-y-auto px-2 py-2">
+        <nav className="scrollbar-thin flex-1 overflow-y-auto px-2 py-2 space-y-5">
           <SidebarSection title="Recent">
             <RecentChats
               chats={recentChats}
@@ -74,15 +72,13 @@ export function Sidebar({
         </nav>
 
         <div className="space-y-1 border-t border-[var(--border-subtle)] px-3 py-3">
-          {canUpload && (
-            <button
-              onClick={onOpenUpload}
-              className="flex h-9 w-full items-center gap-2 rounded-lg px-3 text-sm text-[var(--text-subtle)] transition hover:bg-[var(--surface-primary)] hover:text-[var(--text-main)]"
-            >
-              <Upload size={14} />
-              Add files
-            </button>
-          )}
+          <button
+            onClick={onOpenUpload}
+            className="flex h-9 w-full items-center gap-2 rounded-lg px-3 text-sm text-[var(--text-subtle)] transition hover:bg-[var(--surface-primary)] hover:text-[var(--text-main)]"
+          >
+            <Upload size={14} />
+            Add files
+          </button>
 
           <Link href="/settings" className="block">
             <button className="flex h-9 w-full items-center gap-2 rounded-lg px-3 text-sm text-[var(--text-subtle)] transition hover:bg-[var(--surface-primary)] hover:text-[var(--text-main)]">

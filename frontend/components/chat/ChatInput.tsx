@@ -12,7 +12,6 @@ type ChatInputProps = {
   webSearchEnabled?: boolean;
   onToggleWebSearch?: () => void;
   onAttach?: () => void;
-  canAttach?: boolean;
   disabled?: boolean;
   className?: string;
 };
@@ -24,7 +23,6 @@ export function ChatInput({
   webSearchEnabled = false,
   onToggleWebSearch,
   onAttach,
-  canAttach = true,
   disabled = false,
   className,
 }: ChatInputProps) {
@@ -95,11 +93,9 @@ export function ChatInput({
 
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              {canAttach && (
-                <button title="Attach file" onClick={onAttach} className="composer-tool-button">
-                  <Paperclip size={14} />
-                </button>
-              )}
+              <button title="Attach file" onClick={onAttach} className="composer-tool-button">
+                <Paperclip size={14} />
+              </button>
 
               <button
                 type="button"

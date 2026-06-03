@@ -122,5 +122,3 @@ def chunk_pages(
             start += token_budget - token_overlap
 
     return chunks
-
-print("Hello")

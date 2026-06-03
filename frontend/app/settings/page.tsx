@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Database, FolderKanban, Save, Sparkles } from "lucide-react";
 import { Logo } from "@/components/common/Logo";
@@ -9,7 +9,6 @@ import { CollectionOverviewPanel } from "@/components/settings/CollectionOvervie
 import { fetchCollectionSummary, fetchCollections } from "@/lib/api-client";
 import type { Collection, CollectionSummary } from "@/lib/types";
 import { SETTINGS_STORAGE_KEY } from "@/lib/theme";
-import { loadAuthContext } from "@/lib/rbac";
 
 const PROVIDER_COLORS: Record<string, string> = {
   openai: "#34d399",
@@ -24,7 +23,6 @@ export default function SettingsPage() {
   const [collectionSummary, setCollectionSummary] = useState<CollectionSummary | null>(null);
   const [collectionSummaryLoading, setCollectionSummaryLoading] = useState(false);
   const [saved, setSaved] = useState(false);
-  const auth = useMemo(() => loadAuthContext(), []);
 
   useEffect(() => {
     try {
@@ -43,37 +41,43 @@ export default function SettingsPage() {
     }
   }, []);
 
-  const loadCollections = useCallback(async () => {
-    try {
-      const apiCollections = await fetchCollections(auth);
-      const totalDocs = apiCollections.reduce((sum, collection) => sum + collection.doc_count, 0);
-      setCollections([
-        {
-          id: "all",
-          name: "All Documents",
-          section: "Overview",
-          docCount: totalDocs,
-          isPublic: true,
-          color: "#10a37f",
-        },
-        ...apiCollections.map((collection) => ({
-          id: collection.id,
-          name: collection.name,
-          description: collection.description,
-          section: collection.section,
-          docCount: collection.doc_count,
-          isPublic: collection.is_public,
-          color: collection.color,
-        })),
-      ]);
-    } catch {
-      setCollections([]);
-    }
-  }, [auth]);
-
   useEffect(() => {
+    let cancelled = false;
+
+    const loadCollections = async () => {
+      try {
+        const apiCollections = await fetchCollections();
+        if (cancelled) return;
+        const totalDocs = apiCollections.reduce((sum, collection) => sum + collection.doc_count, 0);
+        setCollections([
+          {
+            id: "all",
+            name: "All Documents",
+            section: "Overview",
+            docCount: totalDocs,
+            isPublic: true,
+            color: "#10a37f",
+          },
+          ...apiCollections.map((collection) => ({
+            id: collection.id,
+            name: collection.name,
+            description: collection.description,
+            section: collection.section,
+            docCount: collection.doc_count,
+            isPublic: collection.is_public,
+            color: collection.color,
+          })),
+        ]);
+      } catch {
+        if (!cancelled) setCollections([]);
+      }
+    };
+
     loadCollections().catch(() => {});
-  }, [loadCollections]);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,7 +85,7 @@ export default function SettingsPage() {
     const loadSummary = async () => {
       setCollectionSummaryLoading(true);
       try {
-        const summary = await fetchCollectionSummary(selectedCollectionId, auth);
+        const summary = await fetchCollectionSummary(selectedCollectionId);
         if (cancelled) return;
         setCollectionSummary({
           collectionId: summary.collection_id,
@@ -112,7 +116,7 @@ export default function SettingsPage() {
     return () => {
       cancelled = true;
     };
-  }, [auth, selectedCollectionId]);
+  }, [selectedCollectionId]);
 
   const collectionOptions = useMemo(
     () => collections.map((collection) => ({ id: collection.id, name: collection.name })),
@@ -232,7 +236,6 @@ export default function SettingsPage() {
               ))}
             </select>
           </Panel>
-
         </section>
 
         <CollectionOverviewPanel

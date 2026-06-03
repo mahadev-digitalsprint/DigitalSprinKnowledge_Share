@@ -9,9 +9,8 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { UploadModal } from "@/components/modal/UploadModal";
 import { mockCollections, mockModels } from "@/lib/mock-data";
 import type { Collection, Message, RecentChat, Source } from "@/lib/types";
-import { fetchCollections, login, signup, streamChat } from "@/lib/api-client";
+import { fetchCollections, streamChat } from "@/lib/api-client";
 import { applyTheme, isThemeMode, persistTheme, type ThemeMode } from "@/lib/theme";
-import { loadAuthContext, saveAuthContext, type FrontendAuthContext } from "@/lib/rbac";
 
 const CHAT_STORAGE_KEY = "rag-ui-chats";
 const SETTINGS_STORAGE_KEY = "rag-ui-settings";
@@ -91,7 +90,7 @@ function getSupportedModelId(preferred?: string): string {
 }
 
 function getLastMessagePreview(chat: ChatSession): string {
-  const candidate = [...chat.messages].reverse().find((m) => m.content.trim());
+  const candidate = [...chat.messages].reverse().find((message) => message.content.trim());
   if (!candidate) return "No messages yet";
   return candidate.content.replace(/\s+/g, " ").trim();
 }
@@ -108,22 +107,6 @@ function createChat(collectionId: string): ChatSession {
 
 
 export default function ChatPage() {
-  const [auth, setAuth] = useState<FrontendAuthContext>({
-    userId: "local-dev-user",
-    role: "admin",
-    collections: ["*"],
-  });
-  const [authReady, setAuthReady] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState("");
-  const [authForm, setAuthForm] = useState({
-    fullName: "",
-    email: "",
-    password: "",
-    role: "employee" as "admin" | "employee",
-  });
   const [collections, setCollections] = useState<Collection[]>(mockCollections);
   const [chats, setChats] = useState<ChatSession[]>([INITIAL_CHAT]);
   const [activeChatId, setActiveChatId] = useState(INITIAL_CHAT.id);
@@ -141,7 +124,7 @@ export default function ChatPage() {
   const abortRef = useRef<(() => void) | null>(null);
 
   const refreshCollections = useCallback(async () => {
-    const apiCollections = await fetchCollections(auth);
+    const apiCollections = await fetchCollections();
     const totalDocs = apiCollections.reduce((sum, collection) => sum + collection.doc_count, 0);
       setCollections([
         {
@@ -162,25 +145,13 @@ export default function ChatPage() {
           color: collection.color,
         })),
       ]);
-  }, [auth]);
-
-  useEffect(() => {
-    const stored = loadAuthContext();
-    setAuth(stored);
-    setIsLoggedIn(Boolean(stored.token));
-    setAuthReady(true);
   }, []);
 
   useEffect(() => {
-    saveAuthContext(auth);
-  }, [auth]);
-
-  useEffect(() => {
-    if (!authReady || !isLoggedIn) return;
     refreshCollections().catch(() => {
       // Keep mock collections when the backend is unavailable.
     });
-  }, [authReady, isLoggedIn, refreshCollections]);
+  }, [refreshCollections]);
 
   useEffect(() => {
     try {
@@ -321,10 +292,10 @@ export default function ChatPage() {
 
   const handleSelectChat = useCallback(
     (chatId: string) => {
-      const selected = chats.find((chat) => chat.id === chatId);
-      if (!selected) return;
+      const selectedChat = chats.find((chat) => chat.id === chatId);
+      if (!selectedChat) return;
       setActiveChatId(chatId);
-      setActiveCollection(selected.collectionId);
+      setActiveCollection(selectedChat.collectionId);
       setSidebarOpen(false);
       setSourcePanelOpen(false);
     },
@@ -390,7 +361,6 @@ export default function ChatPage() {
           const stream = streamChat({
             query: prompt,
             collectionId: activeCollection,
-            auth,
             provider,
             model: requestModel,
             history,
@@ -513,114 +483,10 @@ export default function ChatPage() {
       modelId,
       updateChat,
       webSearchEnabled,
-      auth,
     ],
   );
 
-  const canUpload = auth.role === "admin";
-
-  const handleAuthSubmit = useCallback(async () => {
-    if (!authForm.email.trim() || !authForm.password.trim()) return;
-    setAuthLoading(true);
-    setAuthError("");
-    try {
-      const response = authMode === "signup"
-        ? await signup({
-            email: authForm.email.trim(),
-            full_name: authForm.fullName.trim(),
-            password: authForm.password,
-            role: authForm.role,
-          })
-        : await login({
-            email: authForm.email.trim(),
-            password: authForm.password,
-          });
-
-      setAuth({
-        userId: response.user.id,
-        role: response.user.role,
-        collections: response.user.allowed_collections,
-        token: response.access_token,
-        email: response.user.email,
-        fullName: response.user.full_name,
-      });
-      setIsLoggedIn(true);
-    } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Authentication failed");
-    } finally {
-      setAuthLoading(false);
-    }
-  }, [authForm, authMode]);
-
   const handleExampleClick = useCallback((prompt: string) => handleSend(prompt), [handleSend]);
-
-  if (!authReady) {
-    return <div className="flex h-screen items-center justify-center bg-[var(--app-bg)] text-[var(--text-main)]">Loading...</div>;
-  }
-
-  if (!isLoggedIn) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 text-[var(--text-main)]">
-        <div className="w-full max-w-md rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-primary)] p-6">
-          <h1 className="text-2xl font-semibold">{authMode === "signup" ? "Create account" : "Login"}</h1>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
-            {authMode === "signup" ? "Sign up first to start using the app." : "Welcome back. Login to continue."}
-          </p>
-          <div className="mt-4 space-y-3">
-            {authMode === "signup" && (
-              <input
-                value={authForm.fullName}
-                onChange={(e) => setAuthForm((prev) => ({ ...prev, fullName: e.target.value }))}
-                placeholder="Full name"
-                className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-secondary)] px-3 py-2 text-sm"
-              />
-            )}
-            <input
-              value={authForm.email}
-              onChange={(e) => setAuthForm((prev) => ({ ...prev, email: e.target.value }))}
-              placeholder="Email"
-              type="email"
-              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-secondary)] px-3 py-2 text-sm"
-            />
-            <input
-              value={authForm.password}
-              onChange={(e) => setAuthForm((prev) => ({ ...prev, password: e.target.value }))}
-              placeholder="Password"
-              type="password"
-              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-secondary)] px-3 py-2 text-sm"
-            />
-            {authMode === "signup" && (
-              <select
-                value={authForm.role}
-                onChange={(e) => setAuthForm((prev) => ({ ...prev, role: e.target.value as "admin" | "employee" }))}
-                className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-secondary)] px-3 py-2 text-sm"
-              >
-                <option value="employee">Employee</option>
-                <option value="admin">Admin</option>
-              </select>
-            )}
-          </div>
-          {authError && <p className="mt-3 text-sm text-red-400">{authError}</p>}
-          <button
-            onClick={handleAuthSubmit}
-            disabled={authLoading}
-            className="mt-4 w-full rounded-lg bg-[var(--accent-strong)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-          >
-            {authLoading ? "Please wait..." : authMode === "signup" ? "Sign up" : "Login"}
-          </button>
-          <button
-            onClick={() => {
-              setAuthMode((prev) => (prev === "signup" ? "login" : "signup"));
-              setAuthError("");
-            }}
-            className="mt-3 w-full text-sm text-[var(--text-muted)] underline"
-          >
-            {authMode === "signup" ? "Already have an account? Login" : "No account yet? Sign up"}
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--app-bg)]">
@@ -630,7 +496,6 @@ export default function ChatPage() {
         onSelectChat={handleSelectChat}
         onNewChat={handleNewChat}
         onOpenUpload={() => setUploadOpen(true)}
-        canUpload={canUpload}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -644,8 +509,6 @@ export default function ChatPage() {
           onMenuClick={() => setSidebarOpen(true)}
           theme={theme}
           onToggleTheme={() => setTheme((value) => (value === "dark" ? "light" : "dark"))}
-          role={auth.role}
-          onRoleChange={(role) => setAuth((prev) => ({ ...prev, role }))}
         />
 
         <MessageList
@@ -663,7 +526,6 @@ export default function ChatPage() {
           webSearchEnabled={webSearchEnabled}
           onToggleWebSearch={() => setWebSearchEnabled((value) => !value)}
           onAttach={() => setUploadOpen(true)}
-          canAttach={canUpload}
           disabled={isStreaming}
         />
       </div>
@@ -684,7 +546,6 @@ export default function ChatPage() {
         }}
         preferredCollectionId={activeCollection}
         collections={collections}
-        auth={auth}
       />
     </div>
   );
